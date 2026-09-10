@@ -21,6 +21,12 @@ Cloudflare Pages serves.**
 Edit `site/index.html` directly for copy changes. Commit to `main` and
 Cloudflare Pages deploys it on its own.
 
+### `supabase/` — lead capture (reference copy)
+
+The database migration and the `notify-lead` Edge Function that emails every
+form submission to contact@nolimitwebs.com. The live versions run inside
+Supabase; this folder is the backup. See `supabase/README.md`.
+
 ### `functions/` and `lib/` — the Stripe proposal checkout
 
 `functions/api/*.js` are Cloudflare Pages Functions (they become

@@ -119,13 +119,13 @@ and any mismatch between the team's inputs and the generated prices.
      `build_total_cents=<input>`, `hosting_monthly_cents=<input>`;
    - `invoice_creation[enabled]=true`; invoice description `Website build — 50% deposit`;
    - invoice metadata `launch_status=awaiting_checkout`, hosting price ID;
-   - invoice footer `Thank you for choosing Limitless Marketing Group. nolimitwebs.com | contact@limitlessxcollective.com`;
+   - invoice footer `Thank you for choosing Limitless Marketing Group. nolimitwebs.com | contact@nolimitwebs.com`;
    - completion redirect `https://nolimitwebs.com/payment-complete/#session_id={CHECKOUT_SESSION_ID}`;
    - custom terms text: “I authorize the deposit shown above, saving my card,
      an equal final build payment when my website goes live, and the monthly
      hosting amount shown in my proposal starting 30 days after launch until
      canceled. Changes require separate approval. Cancel future hosting renewals
-     at contact@limitlessxcollective.com before the next renewal. I accept the
+     at contact@nolimitwebs.com before the next renewal. I accept the
      [billing terms](https://nolimitwebs.com/billing-terms/).”
 
 Always send the website proposal URL so the client sees the full build and
