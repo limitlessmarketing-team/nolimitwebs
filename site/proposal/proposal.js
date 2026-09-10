@@ -19,7 +19,7 @@ try {
     `I authorize Limitless Marketing Group LLC to collect my ${money(proposal.deposit)} USD deposit and securely save the payment method I provide through Stripe.`,
     `I authorize the remaining ${money(proposal.balance)} USD build balance to be charged when my website goes live, and ${money(proposal.monthlyHosting)} USD in monthly hosting starting 30 days after launch. Hosting continues monthly until canceled. The team will notify me of the launch date and first hosting billing date.`,
     'Additional services or hosting price changes require my separate approval. A payment may require additional bank verification, and I agree to update my payment method if needed.',
-    'I can request cancellation of future hosting renewals by emailing contact@limitlessxcollective.com before the next renewal. Cancellation does not cancel an outstanding website build balance. The service end date will be confirmed in writing.',
+    'I can request cancellation of future hosting renewals by emailing contact@nolimitwebs.com before the next renewal. Cancellation does not cancel an outstanding website build balance. The service end date will be confirmed in writing.',
     'I will be asked to accept these billing terms in Stripe before paying.',
   ];
   for (const text of paragraphs) { const p = document.createElement('p'); p.textContent = text; $('authorization').append(p); }
