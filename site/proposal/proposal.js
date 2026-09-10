@@ -2,6 +2,9 @@ const $ = id => document.getElementById(id);
 const money = cents => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: cents % 100 ? 2 : 0 }).format(cents / 100);
 const id = location.hash.slice(1);
 
+// Load the matching client and clear stale checkout state when a proposal link changes.
+window.addEventListener('hashchange', () => location.reload());
+
 try {
   if (!/^plink_[A-Za-z0-9]{12,100}$/.test(id)) throw new Error('Open the personal proposal link our team shared with you to see your agreed pricing.');
   const response = await fetch(`/api/proposal?id=${encodeURIComponent(id)}`, { cache: 'no-store', referrerPolicy: 'no-referrer' });
