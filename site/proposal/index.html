@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer">
+  <meta name="theme-color" content="#f6f5fa"><title>Your website proposal | Limitless Marketing Group</title>
+  <link rel="icon" href="/favicon.svg"><link rel="stylesheet" href="/proposal/proposal.css">
+  <script type="module" src="/proposal/proposal.js"></script>
+</head>
+<body>
+  <header class="masthead"><a class="logo" href="/" aria-label="Limitless Marketing Group home"></a><a class="help" href="mailto:contact@limitlessxcollective.com">Have a question? <span>Contact us ↗</span></a></header>
+  <main class="layout">
+    <section class="intro">
+      <p class="eyebrow">YOUR NEXT CHAPTER, ONLINE</p>
+      <h1>A website built<br>around <em>you.</em></h1>
+      <p class="lead">Your project. Your agreed price. A clear path from the first deposit to launch day.</p>
+      <ol class="timeline">
+        <li><span class="step">01</span><div><h2>Start with 50%</h2><p>Review your proposal, enter your details, and pay your deposit securely through Stripe.</p></div></li>
+        <li><span class="step">02</span><div><h2>Pay the balance at launch</h2><p>We notify you when your website is live, then charge the remaining 50% to your authorized payment method.</p></div></li>
+        <li><span class="step">03</span><div><h2>Hosting starts 30 days later</h2><p>Your agreed hosting rate renews monthly until canceled. We confirm your first billing date at launch.</p></div></li>
+      </ol>
+    </section>
+    <section class="proposal" aria-labelledby="proposal-title">
+      <div id="loading" role="status">Loading your proposal…</div>
+      <div id="error" hidden><p class="eyebrow">LET’S GET YOU TO THE RIGHT PLACE</p><h2>Your personal proposal link</h2><p id="error-text">Open the proposal link our team shared with you to see your agreed pricing.</p><a class="primary" href="mailto:contact@limitlessxcollective.com">Contact our team ↗</a></div>
+      <div id="details" hidden>
+        <p id="test-mode" class="test-banner" hidden>Stripe sandbox · Test payments only</p>
+        <p class="eyebrow">YOUR PROJECT PROPOSAL</p><h2 id="proposal-title">Your custom website</h2>
+        <div class="price-row"><span>Total website build</span><strong id="total"></strong></div>
+        <div class="price-row subtle"><span>Remaining 50% at launch</span><strong id="balance"></strong></div>
+        <div class="hosting"><div><strong>Monthly website hosting</strong><p>First payment 30 days after launch.</p></div><strong><span id="hosting"></span><small>/month</small></strong></div>
+        <div class="due"><span>50% deposit due today</span><strong id="deposit"></strong><small>USD</small></div>
+        <a id="checkout" class="primary" rel="noreferrer">Continue to secure checkout <span>↗</span></a>
+        <p id="closed" class="notice" hidden>This proposal is closed for payment. If you have already paid, use your Stripe receipt. Contact us if you need an updated proposal.</p>
+        <p class="secure">Your payment is processed securely by Stripe.</p>
+        <details class="terms"><summary>Review your billing authorization</summary><div id="authorization"></div><p><a href="/billing-terms/" target="_blank" rel="noopener noreferrer">Read the full billing terms ↗</a></p></details>
+      </div>
+    </section>
+  </main>
+  <footer><span>Limitless Marketing Group LLC</span><a href="mailto:contact@limitlessxcollective.com">contact@limitlessxcollective.com</a><a href="/">nolimitwebs.com</a></footer>
+</body>
+</html>
