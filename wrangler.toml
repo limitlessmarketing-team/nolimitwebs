@@ -1,0 +1,5 @@
+# Cloudflare Pages configuration for nolimitwebs.com
+name = "nolimitwebs"
+pages_build_output_dir = "site"
+compatibility_date = "2025-09-01"
+compatibility_flags = ["nodejs_compat"]

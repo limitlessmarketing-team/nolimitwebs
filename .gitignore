@@ -1,0 +1,15 @@
+# dependencies / build output (source/)
+node_modules/
+.next/
+.open-next/
+.vercel/
+.wrangler/
+dist/
+*.tsbuildinfo
+
+# env & secrets — never commit these
+.env
+.env.*
+
+# OS noise
+.DS_Store

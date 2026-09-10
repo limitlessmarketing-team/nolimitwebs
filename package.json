@@ -1,0 +1,6 @@
+{
+  "name": "nolimitwebs",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test tests/billing.test.mjs" }
+}
