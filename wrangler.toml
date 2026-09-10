@@ -3,3 +3,11 @@ name = "nolimitwebs"
 pages_build_output_dir = "site"
 compatibility_date = "2025-09-01"
 compatibility_flags = ["nodejs_compat"]
+
+# Plain-text variables live here (Cloudflare only lets secrets be set in the dashboard
+# once a wrangler.toml exists). The Stripe keys themselves are dashboard secrets.
+[vars]
+STRIPE_MODE = "live"
+
+[env.preview.vars]
+STRIPE_MODE = "test"
