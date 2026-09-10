@@ -25,8 +25,8 @@
 <link rel="apple-touch-icon" href="/favicon.svg">
 <link rel="preload" href="/basalt.webp" as="image">
 <link rel="preload" href="/kestrel.webp" as="image">
-<link rel="stylesheet" href="/styles.css?v=6">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"ProfessionalService","name":"Limitless Marketing Group","legalName":"Limitless Marketing Group","url":"https://nolimitwebs.com","description":"Conversion-focused websites and free custom mockups for ambitious growing businesses.","image":"https://nolimitwebs.com/og.jpg","telephone":"+18019000277","email":"contact@limitlessxcollective.com","priceRange":"$$","areaServed":"Worldwide","serviceType":"Website design and development","contactPoint":{"@type":"ContactPoint","contactType":"sales","telephone":"+18019000277","email":"contact@limitlessxcollective.com","availableLanguage":"English"}}</script>
+<link rel="stylesheet" href="/styles.css?v=7">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"ProfessionalService","name":"Limitless Marketing Group","legalName":"Limitless Marketing Group","url":"https://nolimitwebs.com","description":"Conversion-focused websites and free custom mockups for ambitious growing businesses.","image":"https://nolimitwebs.com/og.jpg","telephone":"+18019000277","email":"contact@nolimitwebs.com","priceRange":"$$","areaServed":"Worldwide","serviceType":"Website design and development","contactPoint":{"@type":"ContactPoint","contactType":"sales","telephone":"+18019000277","email":"contact@nolimitwebs.com","availableLanguage":"English"}}</script>
 </head>
 <body>
 <a class="skipLink" href="#main">Skip to content</a>
@@ -83,13 +83,17 @@
       </div>
     </div>
     <div class="shell">
-      <div class="quoteRail rv">
+      <div class="carousel rv" data-carousel>
+        <button class="carouselBtn carouselPrev" type="button" aria-label="Previous review"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"/></svg></button>
+        <button class="carouselBtn carouselNext" type="button" aria-label="Next review"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button>
+      <div class="quoteRail" aria-live="off">
         <figure><span class="stars" aria-label="5 out of 5 stars">★★★★★</span><blockquote>I couldn’t believe how easy the process was. Our website was finished in just 48 hours, and we absolutely love how it turned out!</blockquote><figcaption><b>Kristi</b><span>Cosmetology School Director &amp; Salon Owner</span></figcaption></figure>
         <figure><span class="stars" aria-label="5 out of 5 stars">★★★★★</span><blockquote>They took our ideas and turned them into exactly what we pictured. The design looks sharp, and they were easy to work with from start to finish.</blockquote><figcaption><b>Shane</b><span>Landscaping Business Owner</span></figcaption></figure>
         <figure><span class="stars" aria-label="5 out of 5 stars">★★★★★</span><blockquote>I wanted a website that felt polished but still matched the personality of my salon, and they nailed it. It looks beautiful.</blockquote><figcaption><b>Eva</b><span>Nail Salon Owner</span></figcaption></figure>
         <figure><span class="stars" aria-label="5 out of 5 stars">★★★★★</span><blockquote>I basically told them what I wanted, and they handled everything from there. The whole process was simple, and the final result looks great.</blockquote><figcaption><b>Daniel</b><span>Fence Company Owner</span></figcaption></figure>
         <figure><span class="stars" aria-label="5 out of 5 stars">★★★★★</span><blockquote>Limitless Marketing gave us a custom design that really fits our brand. It looks modern, professional, and completely our own.</blockquote><figcaption><b>London</b><span>Social Media Influencer</span></figcaption></figure>
         <figure><span class="stars" aria-label="5 out of 5 stars">★★★★★</span><blockquote>Our website looks amazing and works just as well on a phone as it does on a computer, which was really important to us. We couldn’t be happier with it!</blockquote><figcaption><b>Avery</b><span>Esthetician</span></figcaption></figure>
+      </div>
       </div>
     </div>
   </section>
@@ -166,7 +170,7 @@
         <p class="lede">Start with a free, no-pressure website mockup built around your business. Prefer to talk?</p>
         <div class="contactWays">
           <a href="tel:+18019000277"><span>Call</span>(801) 900-0277</a>
-          <a href="mailto:contact@limitlessxcollective.com"><span>Email</span>contact@limitlessxcollective.com</a>
+          <a href="mailto:contact@nolimitwebs.com"><span>Email</span>contact@nolimitwebs.com</a>
         </div>
       </div>
       <form class="formPanel rv" novalidate>
@@ -200,7 +204,7 @@
       </div>
       <div class="footerContact">
         <a href="tel:+18019000277">(801) 900-0277</a>
-        <a href="mailto:contact@limitlessxcollective.com">contact@limitlessxcollective.com</a>
+        <a href="mailto:contact@nolimitwebs.com">contact@nolimitwebs.com</a>
       </div>
     </div>
     <p class="footerLegal">© 2026 Limitless Marketing Group</p>
@@ -214,7 +218,7 @@
 
 <script>
 (function () {
-  var EMAIL = "contact@limitlessxcollective.com";
+  var EMAIL = "contact@nolimitwebs.com";
   var TEL   = "+18019000277";
   var SB_URL = "https://sdpmvuedcfepbedntdev.supabase.co";
   var SB_KEY = "sb_publishable_Bp9zkkMoU2Sg728Lzh1p1g_TsOqsBqn";
@@ -249,6 +253,40 @@
       bar.setAttribute('data-visible', e[0].isIntersecting ? 'false' : 'true');
     }, { rootMargin: '-40px 0px 0px 0px' }).observe(hero);
   }
+
+  // Reviews carousel: slow continuous drift, seamless loop, pauses on hover/touch,
+  // arrows nudge by one card. Falls back to a plain scrollable row when the
+  // visitor prefers reduced motion.
+  (function () {
+    var wrap = document.querySelector('[data-carousel]');
+    var rail = wrap && wrap.querySelector('.quoteRail');
+    if (!rail) return;
+    var cards = Array.prototype.slice.call(rail.children);
+    if (cards.length < 2) return;
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    cards.forEach(function (c) { var d = c.cloneNode(true); d.setAttribute('aria-hidden', 'true'); rail.appendChild(d); });
+    rail.classList.add('isCarousel');
+    var x = 0, paused = false, last = null, speed = reduce ? 0 : 28; // px per second
+    function loopWidth(){ var first = cards[0], gap = parseFloat(getComputedStyle(rail).columnGap || getComputedStyle(rail).gap) || 0; return (first.offsetWidth + gap) * cards.length; }
+    function apply(){ var w = loopWidth(); if (w > 0) { x = ((x % w) + w) % w; } rail.style.transform = 'translate3d(' + (-x) + 'px,0,0)'; }
+    function tick(ts){ if (last !== null && !paused) { x += speed * (ts - last) / 1000; apply(); } last = ts; requestAnimationFrame(tick); }
+    if (speed) requestAnimationFrame(tick);
+    wrap.addEventListener('mouseenter', function(){ paused = true; });
+    wrap.addEventListener('mouseleave', function(){ paused = false; });
+    wrap.addEventListener('focusin', function(){ paused = true; });
+    wrap.addEventListener('focusout', function(){ paused = false; });
+    var startX = null, startOffset = 0;
+    rail.addEventListener('touchstart', function(e){ paused = true; startX = e.touches[0].clientX; startOffset = x; }, { passive: true });
+    rail.addEventListener('touchmove', function(e){ if (startX === null) return; x = startOffset + (startX - e.touches[0].clientX); apply(); }, { passive: true });
+    rail.addEventListener('touchend', function(){ startX = null; setTimeout(function(){ paused = false; }, 1500); });
+    function step(dir){ var w = loopWidth() / cards.length; var target = Math.round(x / w) * w + dir * w; var from = x, t0 = null;
+      function anim(ts){ if (t0 === null) t0 = ts; var p = Math.min(1, (ts - t0) / 420); x = from + (target - from) * easeInOutCubic(p); apply(); if (p < 1) requestAnimationFrame(anim); }
+      requestAnimationFrame(anim); }
+    wrap.querySelector('.carouselPrev').addEventListener('click', function(){ step(-1); });
+    wrap.querySelector('.carouselNext').addEventListener('click', function(){ step(1); });
+    window.addEventListener('resize', apply);
+    apply();
+  })();
 
   // Reveal on scroll
   var rv = document.querySelectorAll('.rv');

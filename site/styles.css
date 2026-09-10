@@ -133,8 +133,16 @@ main { padding-top: calc(var(--nav-h) + env(safe-area-inset-top, 0px)); }
 
 /* Reviews ----------------------------------------------------------------- */
 .testimonials { padding: clamp(72px, 9vw, 120px) 0 0; border-top: 1px solid var(--hairline); background: var(--void-2); }
-.quoteRail { display: grid; grid-auto-flow: column; grid-auto-columns: min(420px, 82vw); gap: 18px; overflow-x: auto; padding: 8px 0 clamp(72px, 9vw, 120px); scroll-snap-type: x mandatory; scrollbar-width: none; }
+.carousel { position: relative; padding-bottom: clamp(72px, 9vw, 120px); }
+.quoteRail { display: grid; grid-auto-flow: column; grid-auto-columns: min(420px, 82vw); gap: 18px; overflow-x: auto; padding: 8px 0; scroll-snap-type: x mandatory; scrollbar-width: none; }
 .quoteRail::-webkit-scrollbar { display: none; }
+.quoteRail.isCarousel { overflow: visible; scroll-snap-type: none; will-change: transform; }
+.carousel { overflow-x: clip; }
+.carouselBtn { position: absolute; z-index: 2; top: 50%; transform: translateY(-70%); width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--hairline-2); background: rgba(9, 12, 20, .85); color: var(--text); display: grid; place-items: center; cursor: pointer; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); transition: background .2s, transform .2s var(--ease); }
+.carouselBtn svg { width: 20px; height: 20px; }
+.carouselBtn:hover { background: var(--panel-2); }
+.carouselPrev { left: -10px; } .carouselNext { right: -10px; }
+@media (max-width: 720px) { .carouselBtn { display: none; } }
 .quoteRail figure { margin: 0; scroll-snap-align: start; background: var(--panel); border: 1px solid var(--hairline); border-radius: var(--radius); padding: 30px; display: flex; flex-direction: column; gap: 22px; }
 .stars { color: var(--star); letter-spacing: 3px; font-size: 14px; }
 .quoteRail blockquote { margin: 0; font-size: 18px; line-height: 1.55; color: var(--text); }
