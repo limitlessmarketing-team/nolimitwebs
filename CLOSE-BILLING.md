@@ -1,4 +1,4 @@
-# Close billing integration — sandbox connected
+# Close billing integration — production connected
 
 This branch implements native Close Custom Activities connected to the existing
 Cloudflare Pages billing backend. It is disabled unless `CLOSE_BILLING_ENABLED`
@@ -22,8 +22,8 @@ introduced.
    subscription with its first payment 30 days after that launch action.
    Hosting renews monthly until canceled. Close shows the latest payment state.
 
-Both forms currently have **(sandbox)** in their names and must not be used with
-real clients. Each proposal activity is one project; multiple projects may
+Use **Create website proposal** and **Website launched** for real clients.
+The separate forms with **(sandbox)** in their names are for tests only. Each proposal activity is one project; multiple projects may
 belong to the same Lead. Output fields are optional and filled automatically.
 
 ## Native forms
@@ -138,7 +138,11 @@ Keep the existing Stripe checkout events and add:
 The approved sandbox is deployed at https://stripe-sandbox.nolimitwebs.pages.dev.
 PR #2 was merged into `stripe-sandbox`, not `main`. Cloudflare Preview has its
 own D1 database and server-only credentials, and the two native Close actions
-are labeled **(sandbox)**. Production activation remains pending.
+are labeled **(sandbox)**. Production was activated with PR #3, separate production activity types, encrypted
+server credentials, live Stripe webhook events, and an isolated D1 database.
+Production deployment: af04d4da-7eca-478b-9dcc-c250f998d0d8.
+No real client was charged or messaged during activation; full payment lifecycle
+validation was performed in Stripe sandbox.
 
 See `CLOSE-SANDBOX-RESULTS.md` for the actual provider test evidence.
 
