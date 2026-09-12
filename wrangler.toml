@@ -8,6 +8,15 @@ compatibility_flags = ["nodejs_compat"]
 # once a wrangler.toml exists). The Stripe keys themselves are dashboard secrets.
 [vars]
 STRIPE_MODE = "live"
+CLOSE_BILLING_ENABLED = "true"
+CLOSE_BILLING_CONFIG = '{"mode":"live","organizationId":"orga_qnHnKtxkMQECZFhmI5Q2WWT8n41Dk17JoTmXw5lj4od","subscriptionId":"whsub_7I7QM5vN8MNHYAPPKZ8EhM","proposalType":"actitype_0WZCi80qMXGdmUFSaPIjU4","launchType":"actitype_6ahgsX3OCwyYaqlrtZ3h94","enabledAfter":"2026-09-12T02:53:26.240Z","proposalFields":{"project":"cf_BPxLUdzJy6TCjvKZRRH8KH4SYHMilnTLgZxMX4WckCa","build":"cf_bllpK9n9IulSsiu9fzX7rrEN1Et2pZI74OfjbPgD6Sx","hosting":"cf_6TaiV1Z5eubgt9Ly7kZ92JtfwfP1ieYpIEFrbdl4Zm2","status":"cf_8CxzvfqVrxX9rmYzHKkwmc0TynMGkMInwKGtPPVRRY4","link":"cf_wkPv4gz8lYiVoRQWSQeqwzc8pC6z6ysazShTva7tSVI","deposit":"cf_GFC81WteZbE02V2w4OztIgj2Mf82JHvuiyGqU1UI2Zr","final":"cf_DlkYTYkRGGsBJ47CtcNzNYsdkLHe13L1t8wNhs87CgL","subscription":"cf_sPxt6AeBssPhMbPSIRXqCwKMukZkNlGBZ1nidmviwA4"},"launchFields":{"invoice":"cf_9wnM5bcevKPGHnhnleGlOPUV8EUylFlyn4gY3bPUuNY","authorization":"cf_5ghdW12kYi0UEZmNi9xDLu4fqC8hItcMe3erCUct22Z","result":"cf_B4CAYZe4f3N8J5krAy72qNUnYPjnppnnNMFWXIG2kGC"}}'
+
+[[d1_databases]]
+binding = "CLOSE_BILLING_DB"
+database_name = "nolimitwebs-close-billing-production"
+database_id = "14421e1b-fc63-45d3-a884-84c0a62b53a7"
+migrations_dir = "migrations"
+
 
 [env.preview.vars]
 STRIPE_MODE = "test"
