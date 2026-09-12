@@ -1,4 +1,4 @@
-# Close billing integration — activation pending
+# Close billing integration — sandbox connected
 
 This branch implements native Close Custom Activities connected to the existing
 Cloudflare Pages billing backend. It is disabled unless `CLOSE_BILLING_ENABLED`
@@ -22,7 +22,7 @@ introduced.
    subscription with its first payment 30 days after that launch action.
    Hosting renews monthly until canceled. Close shows the latest payment state.
 
-Both forms currently have **(setup)** in their names and must not be used with
+Both forms currently have **(sandbox)** in their names and must not be used with
 real clients. Each proposal activity is one project; multiple projects may
 belong to the same Lead. Output fields are optional and filled automatically.
 
@@ -32,8 +32,8 @@ Prepared in Limitless Marketing Group’s Close organization:
 
 | Action | Type ID | Fields |
 |---|---|---|
-| Create website proposal (setup) | `actitype_3qOOp9oevMJIBkip7wtxB2` | Required: Project name, Website build price (USD), Monthly hosting price (USD). Outputs: Billing status, Proposal link, Deposit invoice ID, Final invoice ID, Hosting subscription ID. |
-| Website launched (setup) | `actitype_2D8JRXmj5iTkVM68605M2n` | Required: Deposit invoice ID, Launch authorization. Output: Billing result. |
+| Create website proposal (sandbox) | `actitype_3qOOp9oevMJIBkip7wtxB2` | Required: Project name, Website build price (USD), Monthly hosting price (USD). Outputs: Billing status, Proposal link, Deposit invoice ID, Final invoice ID, Hosting subscription ID. |
+| Website launched (sandbox) | `actitype_2D8JRXmj5iTkVM68605M2n` | Required: Deposit invoice ID, Launch authorization. Output: Billing result. |
 
 Use separate activity type IDs for sandbox and production. Do not point both
 webhook subscriptions at the same pair of action types.
@@ -133,6 +133,15 @@ Keep the existing Stripe checkout events and add:
   a declined final balance remain explicit operations in Stripe. This setup
   does not invent authorization for those changes.
 
+## Sandbox connection
+
+The approved sandbox is deployed at https://stripe-sandbox.nolimitwebs.pages.dev.
+PR #2 was merged into `stripe-sandbox`, not `main`. Cloudflare Preview has its
+own D1 database and server-only credentials, and the two native Close actions
+are labeled **(sandbox)**. Production activation remains pending.
+
+See `CLOSE-SANDBOX-RESULTS.md` for the actual provider test evidence.
+
 ## Validation and release gate
 
 Local checks use SQLite with the actual D1 schema/queries plus simulated Close
@@ -150,7 +159,7 @@ Before enabling real billing:
    verify no duplicate invoice, payment or subscription.
 5. Exercise a failed payment and monthly renewal/cancellation status updates.
 6. Review the sandbox result before enabling the separately configured live
-   action types, key, webhook and database. Remove **(setup)** only when ready.
+   action types, key, webhook and database. Keep **(sandbox)** on the test actions.
 
 ## Primary references
 
