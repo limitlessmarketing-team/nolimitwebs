@@ -11,3 +11,12 @@ STRIPE_MODE = "live"
 
 [env.preview.vars]
 STRIPE_MODE = "test"
+
+CLOSE_BILLING_ENABLED = "true"
+CLOSE_BILLING_CONFIG = '{"mode":"test","organizationId":"orga_qnHnKtxkMQECZFhmI5Q2WWT8n41Dk17JoTmXw5lj4od","subscriptionId":"whsub_3f89xbD7llBlFpWYClJ4tA","proposalType":"actitype_3qOOp9oevMJIBkip7wtxB2","launchType":"actitype_2D8JRXmj5iTkVM68605M2n","enabledAfter":"2026-09-12T01:00:00Z","proposalFields":{"project":"cf_Wm3KjHoTXxVghencSwA6waaNC6Odxn5Zf4PuZEJPeqz","build":"cf_d4pzxtzM7NjaRMLPxrPrFvur7rUxQ9tsS30LeWyRWYi","hosting":"cf_oE2gKMRWkbCsumu7oQbjcvLktQaTp4jXgd8JPqCGitM","status":"cf_EFRgAdnuHToR1cETfXfjAy2RRcL0gOZFCfCQAMUbeq4","link":"cf_YE8iRGiI7FMaNDxTC1Ky1UVY8O6B065ZfEn8lUn6CuL","deposit":"cf_SoRWNL6EabtWXvglnOZkkcEteOnnMjQiIw40smsUAoF","final":"cf_VeVtFQjnkQ6Mo6LaamMIBYAaChnBi1Z5XNUXGhTN3OJ","subscription":"cf_CVFab0LtVuDH2JutExiAyukrR07t808O05r5HzchNLT"},"launchFields":{"invoice":"cf_gFYsrzGHsEF5ylMENJau7uweYhcJf3QxPVFyn08O8BQ","authorization":"cf_otEYKHEgzyspUt3gnFvrOHeXYWva870RMH3HDa42PmH","result":"cf_6Xz1HkxXTKetBfcWhj3FO3Hc9FTTuZzmznFWNsNNc1G"}}'
+
+[[env.preview.d1_databases]]
+binding = "CLOSE_BILLING_DB"
+database_name = "nolimitwebs-close-billing-sandbox"
+database_id = "e67495ba-a9e7-4d37-9c96-fdaf74747797"
+migrations_dir = "migrations"

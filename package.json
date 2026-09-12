@@ -2,5 +2,5 @@
   "name": "nolimitwebs",
   "private": true,
   "type": "module",
-  "scripts": { "test": "node --test tests/billing.test.mjs" }
+  "scripts": { "test": "node --test tests/*.test.mjs" }
 }
