@@ -38,25 +38,22 @@ create table if not exists public.portfolio_leads (
 
 alter table public.portfolio_leads enable row level security;
 
--- The site is static, so the publishable key ships in the page. Safety comes
--- from this policy pair: anon may INSERT and nothing else. There is deliberately
--- no SELECT/UPDATE/DELETE policy for anon, so a visitor holding that key can
--- submit a lead but can never read, edit or delete one.
-create policy "anon can submit a lead"
-  on public.portfolio_leads for insert to anon
-  with check (source = 'portfolio');
+-- All lead writes go through the server-verified submit-lead function.
+-- Public and ordinary authenticated roles have no direct table access.
+drop policy if exists "anon can submit a lead" on public.portfolio_leads;
+revoke all on table public.portfolio_leads from public, anon, authenticated;
 
--- Lead reads are server-only; signing up must not grant access to client records.
+-- Lead contents are server-only; signing in does not grant team access.
 drop policy if exists "authenticated can read leads" on public.portfolio_leads;
 
 
 -- ----------------------------------------------------------------------------
--- 2. grant_portfolio_leads_insert_to_anon
+-- 2. grant_portfolio_leads_insert_to_service_role
 -- RLS policies alone are not enough — Postgres also checks table GRANTs first.
 -- Without this, inserts fail with "permission denied for table".
 -- ----------------------------------------------------------------------------
 
-grant insert on table public.portfolio_leads to anon;
+grant insert on table public.portfolio_leads to service_role;
 revoke select on table public.portfolio_leads from anon, authenticated;
 
 

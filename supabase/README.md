@@ -1,63 +1,29 @@
-# Supabase backend — lead capture and email alerts
+# Quote form backend
 
-This folder is a **backup and reference copy**. The live versions of these run
-inside Supabase, not from this repo. Nothing here deploys automatically.
+The website submits to the `submit-lead` Edge Function. It verifies a single-use Cloudflare Turnstile token, checks its hostname and action, validates bounded input, and invokes a service-role-only database function. The database allows three submissions per normalized contact per hour, 60 globally per hour, and 300 globally per day. Limits use hashed contact identifiers; counters older than two days are removed on the next request.
 
-## What this does
+`nolimitwebs.com` and `www.nolimitwebs.com` save verified requests. The `stripe-sandbox.nolimitwebs.pages.dev` origin verifies requests but never saves production leads or sends notifications.
 
-1. Someone fills out the contact form on nolimitwebs.com.
-2. Their browser posts straight to Supabase using the publishable key that ships
-   in the page, and a row is saved in `public.portfolio_leads`.
-3. Saving that row trips a database trigger (`on_new_portfolio_lead`).
-4. The trigger calls the `notify-lead` Edge Function, passing a shared secret so
-   the function knows the call really came from the database.
-5. The function formats the lead and sends it through Resend to
-   contact@nolimitwebs.com, from leads@send.nolimitwebs.com.
+## Deployment
 
-Typical end-to-end time: under ten seconds.
+Supabase functions and SQL are deployed separately from Cloudflare Pages. A GitHub merge does not deploy this backend automatically.
 
-## Files
+1. For a new database, apply `migrations.sql`, then the dated files in `migrations/` in filename order.
+2. Configure `TURNSTILE_SECRET_KEY` in Supabase Edge Function secrets. It must never be placed in the repository or website assets. The public site key belongs in `site/site.js`.
+3. Deploy `functions/submit-lead/` using the configuration in `config.toml`. The public endpoint performs its own Turnstile verification. It has no endpoint for reading leads.
+4. Preserve the existing `notify-lead` function and its database trigger. Its secrets are `RESEND_API_KEY`, `LEAD_NOTIFY_FROM`, and `LEAD_NOTIFY_TO`. It authenticates database notifications using the private `app_settings` hook secret.
+5. Deploy the website and verify a normal request before applying the migration that closes direct anonymous inserts. Old cached forms must reload after this cutover.
 
-| File | What it is | Where it actually lives |
-| --- | --- | --- |
-| `migrations.sql` | Every schema change, in order | Supabase → Database |
-| `notify-lead.function.ts` | The Edge Function that sends the email | Supabase → Edge Functions → `notify-lead` |
+Anonymous and ordinary authenticated users must have no direct access to the lead table or the rate-limit RPC. Signing up to Supabase does not make someone an authorized team member. Service-role keys stay on the server; they must not be shared with sales reps or client websites.
 
-## Why the publishable key in the website is safe
+## Verification
 
-It grants INSERT on `portfolio_leads` and nothing else. There is no SELECT,
-UPDATE or DELETE policy or grant for the `anon` role, so someone who copies the
-key out of the page source can submit a lead but cannot read, change or delete
-your lead list. This was verified against the live database — requesting the
-leads with that key returns `permission denied`.
+Run `node --test tests/*.test.mjs` at the repository root. Live checks must also verify normal submissions, invalid/missing token rejection, database permission denial, and rate limits. Automated unit tests use mocks and are not a substitute for these live checks.
 
-## Secrets (set in the Supabase dashboard, never in this repo)
+For a database rate-limit test, use a transaction and roll it back; pg_net notifications are not sent until commit. Never use real customer details in tests.
 
-Supabase → Edge Functions → Secrets:
+## Operational limits
 
-| Name | Value |
-| --- | --- |
-| `RESEND_API_KEY` | Resend sending key, named "Limitless Mockup Form" |
-| `LEAD_NOTIFY_TO` | contact@nolimitwebs.com |
-| `LEAD_NOTIFY_FROM` | `Limitless Leads <leads@send.nolimitwebs.com>` |
+Turnstile and submission limits reduce abuse but do not eliminate all spam or denial-of-service risk. Origin checks alone are not authentication. If verification or the database is unavailable, the form fails closed and shows the public phone and support email.
 
-The shared secret between the trigger and the function is **not** a dashboard
-secret — it is generated inside the database and stored in `public.app_settings`,
-readable only by the service role.
-
-## If you ever have to rebuild this
-
-1. Create a Supabase project.
-2. Run `migrations.sql` in the SQL editor, top to bottom.
-3. Deploy `notify-lead.function.ts` as an Edge Function named `notify-lead`,
-   with JWT verification **off** (it authenticates itself with the shared secret).
-4. Add the three secrets above.
-5. Update `fn_url` in `migrations.sql` and `leadCapture` in `site.config.ts` to
-   point at the new project ref, then redeploy the site.
-
-## Health monitoring
-
-A scheduled task runs Mondays and Thursdays. It queries the leads table — which
-doubles as the keep-alive that stops Supabase from pausing this free-tier project
-— then checks the site is up and the trigger is still enabled, and pushes an
-alert if anything is broken.
+Backups and restore procedures should be tested independently. Do not assume a monitoring schedule or backup policy exists based only on this document.
