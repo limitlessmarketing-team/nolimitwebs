@@ -1,0 +1,3 @@
+# Public form endpoint: validates Turnstile server-side before database access.
+[functions.submit-lead]
+verify_jwt = false

@@ -118,9 +118,25 @@
     }
   }
 
-  // Lead form -> Supabase (portfolio_leads), same pipeline as before.
+  // Verified intake endpoint; direct anonymous database writes are disabled after rollout.
   var form = document.querySelector('form.formPanel');
   if (!form) return;
+  var widgetId = null, verificationToken = '';
+  var verificationBox = document.createElement('div');
+  verificationBox.style.gridColumn = '1 / -1';
+  form.insertBefore(verificationBox, form.querySelector('button[type=submit]'));
+  window.onQuoteVerificationReady = function () {
+    widgetId = window.turnstile.render(verificationBox, {
+      sitekey: '0x4AAAAAAE0goDLVOKMfmyQg', action: 'quote_request', theme: 'dark', size: 'flexible',
+      callback: function (token) { verificationToken = token; },
+      'expired-callback': function () { verificationToken = ''; },
+      'error-callback': function () { verificationToken = ''; }
+    });
+  };
+  var verificationScript = document.createElement('script');
+  verificationScript.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onQuoteVerificationReady&render=explicit';
+  verificationScript.async = true; verificationScript.defer = true;
+  document.head.appendChild(verificationScript);
   var val = function (n) { var el = form.querySelector('[name="' + n + '"]'); return el ? el.value.trim() : ''; };
   function clearErrors(){
     form.querySelectorAll('.fieldError').forEach(function(n){ n.remove(); });
@@ -152,17 +168,20 @@
     var name = val('name'), phone = val('phone'), email = val('email');
     if (!name) return fail('name', 'Please add your name.');
     if (!phone && !email) return fail('phone', 'Add a phone number or an email so we can reach you.');
+    if (!verificationToken) return formLevelError('Please complete the security verification below.');
     var btn = form.querySelector('button[type=submit]');
     var label = btn ? btn.innerHTML : '';
     if (btn) { btn.disabled = true; btn.innerHTML = 'Sending&hellip;'; }
-    fetch(SB_URL + '/rest/v1/portfolio_leads', {
+    fetch(SB_URL + '/functions/v1/submit-lead', {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'apikey': SB_KEY, 'authorization': 'Bearer ' + SB_KEY, 'prefer': 'return=minimal' },
-      body: JSON.stringify({ name: name, business: val('business'), phone: phone, email: email, message: val('message'), source: 'portfolio' })
+      headers: { 'content-type': 'application/json', 'apikey': SB_KEY },
+      body: JSON.stringify({ name: name, business: val('business'), phone: phone, email: email, message: val('message'), token: verificationToken, company_website: val('company_website') })
     }).then(function (r) {
       if (r.ok) { done(); return; }
       throw new Error('status ' + r.status);
     }).catch(function () {
+      verificationToken = '';
+      if (window.turnstile && widgetId !== null) window.turnstile.reset(widgetId);
       if (btn) { btn.disabled = false; btn.innerHTML = label; }
       formLevelError("We couldn't send that just now.");
     });
