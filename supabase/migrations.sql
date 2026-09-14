@@ -46,9 +46,8 @@ create policy "anon can submit a lead"
   on public.portfolio_leads for insert to anon
   with check (source = 'portfolio');
 
-create policy "authenticated can read leads"
-  on public.portfolio_leads for select to authenticated
-  using (true);
+-- Lead reads are server-only; signing up must not grant access to client records.
+drop policy if exists "authenticated can read leads" on public.portfolio_leads;
 
 
 -- ----------------------------------------------------------------------------
@@ -58,7 +57,7 @@ create policy "authenticated can read leads"
 -- ----------------------------------------------------------------------------
 
 grant insert on table public.portfolio_leads to anon;
-grant select on table public.portfolio_leads to authenticated;
+revoke select on table public.portfolio_leads from anon, authenticated;
 
 
 -- ----------------------------------------------------------------------------
