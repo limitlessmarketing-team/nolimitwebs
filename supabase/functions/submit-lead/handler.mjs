@@ -1,6 +1,8 @@
 // Public intake only. Never returns stored leads or accepts caller-supplied database queries.
 const ORIGINS = new Set(['https://nolimitwebs.com', 'https://www.nolimitwebs.com', 'https://stripe-sandbox.nolimitwebs.pages.dev']);
 const LIMIT = 16384;
+const CONSENT_VERSION = "2026-09-15-v1";
+const CONSENT_TEXT = 'I agree to receive text messages from Limitless Marketing Group LLC about my website inquiry, requested mockup, appointments, and project updates, including automated messages. Message frequency varies. Msg & data rates may apply. Reply STOP to opt out or HELP for help. Consent is not a condition of purchase.';
 export function createLeadHandler(env, fetcher = fetch) {
   return async function handle(req) {
     const origin = req.headers.get('origin') || '';
@@ -39,6 +41,23 @@ export function createLeadHandler(env, fetcher = fetch) {
     if (!lead.name || (!lead.phone && !lead.email)) return reply(400, 'Name and contact details required');
     if (lead.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(lead.email)) return reply(400, 'Invalid email');
     if (lead.phone && !/^[+()\d\s.\-]{5,50}$/.test(lead.phone)) return reply(400, 'Invalid phone');
+    if (body.sms_consent !== undefined && typeof body.sms_consent !== 'boolean') return reply(400, 'Invalid SMS consent');
+    const optedIn = body.sms_consent === true;
+    if (optedIn && (!lead.phone || body.sms_consent_version !== CONSENT_VERSION)) return reply(400, 'Phone and current SMS consent required');
+    // Values below come from the server, never from caller-supplied proof fields.
+    lead.sms_consent = {
+      opted_in: optedIn,
+      recorded_at: new Date().toISOString(),
+      phone: lead.phone,
+      source_url: origin + '/#contact',
+      method: 'website_checkbox',
+      disclosure_version: body.sms_consent_version === CONSENT_VERSION ? CONSENT_VERSION : null,
+      disclosure_text: body.sms_consent_version === CONSENT_VERSION ? CONSENT_TEXT : null,
+      terms_url: 'https://nolimitwebs.com/terms/',
+      privacy_url: 'https://nolimitwebs.com/privacy/',
+      scope: 'inquiry_mockup_appointments_project_updates',
+      promotional_consent: false
+    };
     if (typeof body.token !== 'string' || !body.token || body.token.length > 2048) return reply(400, 'Verification required');
     try {
       const response = await fetcher('https://challenges.cloudflare.com/turnstile/v0/siteverify', {

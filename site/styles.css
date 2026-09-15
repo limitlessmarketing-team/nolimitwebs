@@ -315,3 +315,11 @@ main { padding-top: calc(var(--nav-h) + env(safe-area-inset-top, 0px)); }
 /* Reference typography, scoped strictly to the wordmark. */
 @font-face { font-family: 'Archivo Black'; src: url('/fonts/archivo-black.ttf') format('truetype'); font-style: normal; font-weight: 400; font-display: swap; }
 .logoWord, .logoWord b { font-family: 'Archivo Black', 'Arial Black', sans-serif; font-weight: 400; -webkit-text-stroke: 0; letter-spacing: .04em; }
+
+/* Optional SMS consent is separate from requesting a mockup. */
+.smsConsent { padding:16px; margin:2px 0 18px; border:1px solid var(--hairline-2); border-radius:14px; }
+.smsConsentChoice { display:flex; align-items:flex-start; gap:12px; color:var(--muted); font-size:13.5px; line-height:1.65; cursor:pointer; }
+.smsConsentChoice input { flex:0 0 19px; width:19px; height:19px; margin:3px 0 0; accent-color:var(--accent); }
+.smsConsentChoice input:focus-visible { outline:2px solid var(--accent-soft); outline-offset:4px; }
+.smsConsent p { margin:10px 0 0 31px; font-size:13.5px; color:var(--accent-soft); }
+.smsConsent a, .footerLegal a { text-decoration:underline; text-underline-offset:3px; }
