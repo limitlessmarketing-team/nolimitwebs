@@ -166,6 +166,8 @@
     if (val('company_website')) { done(); return; }
     clearErrors();
     var name = val('name'), phone = val('phone'), email = val('email');
+    var smsConsent = form.querySelector('[name="sms_consent"]').checked;
+    if (smsConsent && !phone) return fail('phone', 'Add your mobile number for text updates, or uncheck SMS consent.');
     if (!name) return fail('name', 'Please add your name.');
     if (!phone && !email) return fail('phone', 'Add a phone number or an email so we can reach you.');
     if (!verificationToken) return formLevelError('Please complete the security verification below.');
@@ -175,7 +177,7 @@
     fetch(SB_URL + '/functions/v1/submit-lead', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'apikey': SB_KEY },
-      body: JSON.stringify({ name: name, business: val('business'), phone: phone, email: email, message: val('message'), token: verificationToken, company_website: val('company_website') })
+      body: JSON.stringify({ name: name, business: val('business'), phone: phone, email: email, message: val('message'), sms_consent: smsConsent, sms_consent_version: '2026-09-15-v1', token: verificationToken, company_website: val('company_website') })
     }).then(function (r) {
       if (r.ok) { done(); return; }
       throw new Error('status ' + r.status);
