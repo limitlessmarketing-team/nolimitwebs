@@ -11,7 +11,7 @@
   background: linear-gradient(180deg, rgba(5,7,12,.55) 0%, rgba(5,7,12,0) 22%, rgba(5,7,12,0) 62%, var(--void) 100%); }
 .hero:not([data-shader="on"]) .heroShader, .hero:not([data-shader="on"]) .heroScrim, .hero:not([data-shader="on"]) .heroFade { display: none; }
 .hero[data-shader="on"] .lede { color: #c9cfdd; }
-@supports (-webkit-text-stroke: 1px currentColor) { .hero[data-shader="on"] h1 em { color: rgba(5,7,12,.38); -webkit-text-stroke: 1.5px #ddd0ff; } }
+@supports (-webkit-text-stroke: 1px currentColor) { .hero[data-shader="on"] h1 em { color: rgba(5,7,12,.38); -webkit-text-stroke: 1.5px #ffd6e7; } }
 .hero[data-shader="on"] .heroTrust { color: #c3c9d8; }
 .hero[data-shader="on"] .buttonGhost { background: rgba(5,7,12,.42); border-color: rgba(255,255,255,.22); }
 @media (max-width: 720px) {
