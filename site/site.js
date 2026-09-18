@@ -127,7 +127,7 @@
   form.insertBefore(verificationBox, form.querySelector('button[type=submit]'));
   window.onQuoteVerificationReady = function () {
     widgetId = window.turnstile.render(verificationBox, {
-      sitekey: '0x4AAAAAAE0goDLVOKMfmyQg', action: 'quote_request', theme: 'dark', size: 'flexible',
+      sitekey: '0x4AAAAAAE0goDLVOKMfmyQg', action: 'quote_request', theme: 'dark', size: 'flexible', appearance: 'interaction-only',
       callback: function (token) { verificationToken = token; },
       'expired-callback': function () { verificationToken = ''; },
       'error-callback': function () { verificationToken = ''; }
