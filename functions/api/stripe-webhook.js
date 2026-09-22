@@ -1,3 +1,4 @@
+import { retryBilling } from '../../lib/billing-retry.mjs';
 import { Buffer } from 'node:buffer';
 import { completeDeposit, configure, envVar, expectedMode, reply, verifyEvent } from '../../lib/stripe.mjs';
 import { createBillingService } from '../../lib/close-billing.mjs';
@@ -16,13 +17,15 @@ export async function onRequest({ request, env }) {
   } catch { return reply({ error: 'Invalid signature' }, 400); }
   if (!expectedMode(event.livemode)) return reply({ error: 'Wrong mode' }, 400);
   try {
-    if (['checkout.session.completed', 'checkout.session.async_payment_succeeded'].includes(event.type)) {
-      await completeDeposit(event.data.object.id);
-    }
-    // Disabled until the native Close forms, secrets and database are ready.
-    // Existing website checkout continues to work without a Close connection.
-    const billing = createBillingService(env);
-    if (billing) await billing.onStripe(event);
+    await retryBilling(async () => {
+      if (['checkout.session.completed', 'checkout.session.async_payment_succeeded'].includes(event.type)) {
+        await completeDeposit(event.data.object.id);
+      }
+      // Disabled until the native Close forms, secrets and database are ready.
+      // Existing website checkout continues to work without a Close connection.
+      const billing = createBillingService(env);
+      if (billing) await billing.onStripe(event);
+    });
     return reply({ received: true });
   } catch {
     // A non-2xx response asks Stripe to retry; never acknowledge incomplete setup.
