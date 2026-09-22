@@ -51,7 +51,7 @@ try {
   if (!hostingOnly && proposal.monthlyHosting === 0) {
     document.querySelector('.hosting').hidden = true;
     $('timeline').lastElementChild.hidden = true;
-    if (full) $('intro-lead').textContent = 'One upfront website payment. No build balance at launch and no recurring hosting.';
+    $('intro-lead').textContent = full ? 'One upfront website payment. No build balance at launch and no recurring hosting.' : 'A clear website build price: half upfront, half at launch. No recurring hosting.';
   }
   if (hostingOnly && proposal.active) {
     $('checkout').href = '#';
@@ -89,12 +89,12 @@ try {
     'I will accept these full-payment billing terms in Stripe before paying.'
   ] : [
     `I authorize Limitless Marketing Group LLC to collect my ${money(proposal.deposit)} USD deposit and securely save the payment method I provide through Stripe.`,
-    `I authorize the remaining ${money(proposal.balance)} USD build balance to be charged when my website goes live, and ${money(proposal.monthlyHosting)} USD in monthly hosting starting 30 days after launch. Hosting continues monthly until canceled. The team will notify me of the launch date and first hosting billing date.`,
+    proposal.monthlyHosting > 0 ? `I authorize the remaining ${money(proposal.balance)} USD build balance to be charged when my website goes live, and ${money(proposal.monthlyHosting)} USD in monthly hosting starting 30 days after launch. Hosting continues monthly until canceled. The team will notify me of the launch date and first hosting billing date.` : `I authorize the remaining ${money(proposal.balance)} USD build balance to be charged when my website goes live. No recurring hosting is included.`,
     'Additional services or hosting price changes require my separate approval. A payment may require additional bank verification, and I agree to update my payment method if needed.',
     'I can request cancellation of future hosting renewals by emailing contact@nolimitwebs.com before the next renewal. Cancellation does not cancel an outstanding website build balance. The service end date will be confirmed in writing.',
     'I will be asked to accept these billing terms in Stripe before paying.',
   ];
-  for (const text of paragraphs) { const p = document.createElement('p'); p.textContent = text; $('authorization').append(p); }
+  for (const text of paragraphs.filter(text => proposal.monthlyHosting > 0 || !text.startsWith('I can request cancellation'))) { const p = document.createElement('p'); p.textContent = text; $('authorization').append(p); }
   $('details').hidden = false; $('intro').hidden = false;
 } catch (error) {
   $('error-text').textContent = error.message || 'We could not load your proposal. Please contact our team.';

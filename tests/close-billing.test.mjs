@@ -103,7 +103,14 @@ function fixture(options = {}) {
     return structuredClone(result);
   };
   const store = new BillingStore(database(), 'test', () => clock);
-  const service = createBillingService(env, { stripe: api, close, store, now: () => clock });
+  const selectedConfig = options.paths ? { ...config, paths: options.paths } : config;
+  if (options.route) {
+    activities[proposalId].custom_activity_type_id = options.route.proposalType;
+    activities[launchId].custom_activity_type_id = options.route.launchType;
+    if (options.route.billingPath === 'hosting_only') delete activities[proposalId]['custom.cf_build'];
+    if (options.route.billingPath === 'website_only') delete activities[proposalId]['custom.cf_hosting'];
+  }
+  const service = createBillingService({ ...env, CLOSE_BILLING_CONFIG: JSON.stringify(selectedConfig) }, { stripe: api, close, store, now: () => clock });
   const payload = id => ({ subscription_id: config.subscriptionId, event: { id: `ev_${id}`, object_id: id,
     organization_id: config.organizationId, lead_id: activities[id].lead_id, object_type: 'activity.custom_activity', action: 'created' } });
   const deposit = async () => {
@@ -430,4 +437,49 @@ test('full-payment launch resumes after lost subscription response without anoth
   await f.service.onClose(f.payload(launchId));
   assert.equal(f.writes.filter(w=>w.path==='subscriptions').length,1);
   assert.equal(f.writes.filter(w=>w.path==='invoices'||w.path.endsWith('/pay')).length,0);
+});
+
+const fixedPaths = ['deposit_hosting', 'full_hosting', 'hosting_only', 'website_only'].map((billingPath, i) => ({
+  billingPath, proposalType: `actitype_proposal${i}`, launchType: `actitype_launch${i}`,
+  proposalFields: Object.fromEntries(Object.entries(config.proposalFields).filter(([name]) =>
+    name !== 'paymentPlan' && !(billingPath === 'hosting_only' && ['build', 'final'].includes(name)) &&
+    !(billingPath === 'website_only' && ['hosting', 'subscription'].includes(name)) && !(billingPath === 'full_hosting' && name === 'final'))),
+  launchFields: config.launchFields,
+}));
+for (const route of fixedPaths) {
+  test(`separate action: ${route.billingPath} freezes plan and rejects a different launch action`, async () => {
+    const f = fixture({ paths: fixedPaths, route });
+    await f.service.onClose(f.payload(proposalId));
+    let p = await f.store.get(proposalId);
+    assert.equal(p.proposalType, route.proposalType);
+    assert.equal(p.paymentPlan, route.billingPath === 'full_hosting' ? 'full_upfront' : 'deposit_50');
+    assert.equal(p.build, route.billingPath === 'hosting_only' ? 0 : 350000);
+    assert.equal(p.hosting, route.billingPath === 'website_only' ? 0 : 14900);
+    if (route.billingPath === 'hosting_only') {
+      await f.service.hostingProposal(p.linkId);
+      await f.service.hostingCheckout(p.linkId);
+      await f.setup();
+      f.activities[launchId]['custom.cf_invoice'] = proposalId;
+    } else await f.deposit();
+    const before = f.writes.length;
+    f.activities[launchId].custom_activity_type_id = fixedPaths.find(r => r !== route).launchType;
+    await f.service.onClose(f.payload(launchId));
+    assert.match(f.activities[launchId]['custom.cf_result'], /does not match the original proposal/);
+    assert.equal(f.writes.length, before);
+    f.activities[launchId].custom_activity_type_id = route.launchType;
+    await f.service.onClose(f.payload(launchId));
+    p = await f.store.get(proposalId);
+    assert.equal(p.stage, 'launched');
+    assert.equal(Boolean(p.finalId), ['deposit_hosting', 'website_only'].includes(route.billingPath));
+    assert.equal(Boolean(p.subscriptionId), route.billingPath !== 'website_only');
+    const sub = f.writes.find(w => w.path === 'subscriptions');
+    if (sub) assert.equal(sub.params.trial_end, route.billingPath === 'hosting_only' ? undefined : String(clock / 1000 + 30 * 86400));
+    assert.ok(!f.closeWrites.some(w => 'custom.undefined' in w.params));
+  });
+}
+test('legacy proposal and launch remain available with all new routes configured', async () => {
+  const f = fixture({ paths: fixedPaths });
+  await f.service.onClose(f.payload(proposalId)); await f.deposit();
+  await f.service.onClose(f.payload(launchId));
+  assert.equal((await f.store.get(proposalId)).stage, 'launched');
 });

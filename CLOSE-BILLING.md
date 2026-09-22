@@ -5,75 +5,54 @@ Cloudflare Pages billing backend. It is disabled unless `CLOSE_BILLING_ENABLED`
 is explicitly `true`. No new customer-facing app or CRM messaging automation is
 introduced.
 
-## Paid-build projects
+## Choose the matching proposal and launch actions
 
-1. Open the client’s Lead in Close and add **Create website proposal**.
-2. Enter a short project name, the **full website build price in dollars**, and
-   the **monthly hosting price in dollars**. Publish the activity.
-3. Wait for **Proposal ready**. Copy its **Proposal link** into your message to
-   the client. The integration does not send that message for you.
-4. The client reviews the prices on nolimitwebs.com, enters their details in
-   Stripe Checkout, accepts the billing authorization, and pays the 50% deposit.
-   Their card is saved for subsequent payments. Close changes to **Deposit paid**.
-5. When the website is live, add **Website launched** on the same Lead. Copy
-   the **Launch reference** (the paid deposit invoice ID) from the proposal activity. Select **Website is live
-   and signed billing authorization is on file**, then publish.
-6. Stripe attempts the remaining 50% once and creates the monthly hosting
-   subscription with its first payment 30 days after that launch action.
-   Hosting renews monthly until canceled. Close shows the latest payment state.
+Prices are entered in **dollars**, and each proposal can have different pricing.
+Do not enter cents. The chosen action fixes its billing plan; prices and plan
+cannot be changed after a proposal is created.
 
-Use **Create website proposal** and **Website launched** for real clients.
-The separate forms with **(sandbox)** in their names are for tests only. Each proposal activity is one project; multiple projects may
-belong to the same Lead. Output fields are optional and filled automatically.
+| Proposal / Launch action suffix | Upfront | When launched | Hosting |
+|---|---|---|---|
+| **50% deposit + hosting** | Half the total build price | Remaining half | First payment 30 days after launch, then monthly |
+| **100% upfront + hosting** | Entire build price | No build charge | First payment 30 days after launch, then monthly |
+| **Hosting only** | Save card; no charge | First hosting payment | Monthly from launch; build included |
+| **Website only — no hosting** | Half the total build price | Remaining half | No subscription |
 
-## Full-payment projects (100% upfront)
+1. Open the client's Lead in Close. Under **Activity**, choose **Proposal —**
+   followed by the agreed payment option. Only relevant prices are shown.
+2. Enter the project name and agreed prices, then publish. Leave automatic
+   output fields blank.
+3. Wait for **Proposal ready** and copy **Proposal link** to your client message.
+   Creating the proposal does not send a message or mark it paid.
+4. Wait for **Deposit paid**, **Website paid in full**, or **Card saved**.
+   Stripe confirms this status; the integration supplies **Launch reference**.
+5. Once the website is live and billing authorization is on file, add **Launch —**
+   with the **same payment option** on the same Lead. Paste the launch reference,
+   confirm authorization, and publish. Read the action's description before
+   publishing: it states exactly what will be charged.
+6. Check **Billing result** and the original proposal's **Billing status**.
+   If a payment fails or needs bank verification, recover the existing invoice
+   in Stripe. Do not create another proposal or subscription to retry it.
 
-In **Create website proposal**, select **Website payment plan → 100% upfront**,
-then enter the full build price and monthly hosting price. The client pays the
-whole build price and authorizes their card for hosting. Close reports **Website
-paid in full** and supplies the **Launch reference**. When the website is live,
-use **Website launched** with that reference and the existing authorization.
-There is no build invoice or charge at launch. Hosting starts exactly 30 days
-later and renews monthly. A hosting price of 0 creates no recurring subscription.
+Wrong-path launch actions are rejected before Stripe writes. Duplicate events
+and retried launches reuse stored operations. Hosting continues monthly until
+canceled in Stripe. Bank authentication or declines can prevent collection.
 
-Leaving **Website payment plan** blank or selecting **50% deposit** preserves
-the original split-payment flow. Once a proposal is created, its payment plan
-and prices cannot be changed; replace the proposal instead. Existing proposals
-without a plan retain the 50% behavior.
+Forms prefixed **(sandbox)** are test-only. The legacy proposal is hidden from
+new manual creation after activation; **Legacy launch — existing proposals only**
+remains available for older proposals. Older project records retain their
+original prices and 50% payment behavior.
 
-## Hosting-only projects ($0 website build)
+## Configure new forms
 
-Use the same **Create website proposal** action, entering 0 for the build and a
-positive monthly hosting price. The proposal shows “Website build included” and
-“Nothing due today.” The client accepts hosting-specific terms and saves a card
-through Stripe Checkout setup mode. No deposit, build invoice or subscription
-is created during card setup.
-
-After Stripe verifies consent and card setup, Close shows **Card saved** and a
-reference beginning `acti_` in the proposal's **Launch reference** field.
-For **Website launched**, paste that reference (instead of an `in_` deposit ID),
-confirm the same launch authorization, and publish. Stripe attempts the first
-monthly hosting charge immediately and renews monthly with no trial. A failed
-or authentication-required first charge remains visible in Close; recover its
-existing invoice in Stripe rather than creating another launch/subscription.
-
-Proposal links are random bearer capabilities: share them only with the client.
-Deleting the source proposal or changing its prices disables hosting checkout.
-One customer is reused across setup retries; an expired Checkout session can be
-renewed from the original proposal link. Accepted proposals cannot save another
-card via that link. Cancellation of an existing subscription is handled in Stripe.
-
-## Native forms
-
-Prepared in Limitless Marketing Group’s Close organization:
-
-| Action | Type ID | Fields |
-|---|---|---|
-| Create website proposal (sandbox) | `actitype_3qOOp9oevMJIBkip7wtxB2` | Required: Project name, Website build price (USD), Monthly hosting price (USD). Optional: Website payment plan. Outputs: Billing status, Proposal link, Launch reference, Final invoice ID, Hosting subscription ID. |
-| Website launched (sandbox) | `actitype_2D8JRXmj5iTkVM68605M2n` | Required: Launch reference, Launch authorization. Output: Billing result. |
-
-Use separate activity type IDs for sandbox and production. Do not point both
-webhook subscriptions at the same pair of action types.
+`tools/billing-paths.json` defines the four names and descriptions.
+`tools/configure-close-paths.py prepare test|live` creates API-only forms with
+permissions copied from their existing counterparts. It exports only non-secret
+IDs. Add the resulting `paths` to the appropriate `wrangler.toml` configuration,
+deploy and verify, then run `activate` for that environment. Activation expands
+only the existing webhook's activity-type filter and exposes the new forms.
+The old types stay routable for existing proposals. Use a temporary API key,
+entered via a masked prompt; revoke it after configuration.
 
 ## Deployment configuration
 
