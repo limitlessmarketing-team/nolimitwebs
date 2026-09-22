@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { createHmac } from 'node:crypto';
 import { BillingStore } from '../lib/billing-store.mjs';
 import { createBillingService } from '../lib/close-billing.mjs';
-import { dollarsToCents, verifyCloseEvent, LAUNCH_AUTHORIZATION, ReviewRequired } from '../lib/close.mjs';
+import { dollarsToCents, verifyCloseEvent, LAUNCH_AUTHORIZATION, ReviewRequired, CloseRecordNotFound, createCloseClient } from '../lib/close.mjs';
 import { HOSTING_FLOW } from '../lib/hosting-billing.mjs';
 import { onRequest as hostingEndpoint } from '../functions/api/hosting-checkout.js';
 import { onRequest } from '../functions/api/close-webhook.js';
@@ -32,7 +32,7 @@ function metadata(params, prefix = 'metadata') {
   return Object.fromEntries(entries.map(([k, v]) => [k.slice(prefix.length + 1, -1), v]));
 }
 function fixture(options = {}) {
-  const data = {}, writes = [], closeWrites = [], receipts = new Map();
+  const data = {}, writes = [], closeWrites = [], closeCalls = [], receipts = new Map();
   const activities = {
     [proposalId]: { id: proposalId, lead_id: leadId, organization_id: config.organizationId, status: 'published', date_created: '2026-09-11T17:00:00Z',
       custom_activity_type_id: config.proposalType, 'custom.cf_project': 'Example website', 'custom.cf_build': 3500, 'custom.cf_hosting': 149 },
@@ -40,6 +40,8 @@ function fixture(options = {}) {
       custom_activity_type_id: config.launchType, 'custom.cf_invoice': 'in_deposit', 'custom.cf_authorization': LAUNCH_AUTHORIZATION },
   };
   const close = async (path, params) => {
+    closeCalls.push({ path, write: Boolean(params) });
+    if (options.closeError && (!options.closeErrorOnWrite || params)) throw options.closeError;
     const id = path.split('/')[2]; assert.ok(activities[id], `Unknown Close activity: ${path}`);
     if (params) { closeWrites.push({ path, params }); Object.assign(activities[id], params); }
     return structuredClone(activities[id]);
@@ -137,7 +139,7 @@ function fixture(options = {}) {
     mutate({ session, intent: data['setup_intents/seti_setup'], method: data['payment_methods/pm_hosting'] });
     await service.onStripe({ type: 'checkout.session.completed', data: { object: { id: session.id } } });
   };
-  return { setup, data, writes, closeWrites, activities, store, service, payload, deposit, decline() { declined = true; } };
+  return { setup, data, writes, closeWrites, closeCalls, activities, store, service, payload, deposit, decline() { declined = true; } };
 }
 
 test('dollar inputs convert exactly without floating-point rounding', () => {
@@ -483,3 +485,92 @@ test('legacy proposal and launch remain available with all new routes configured
   await f.service.onClose(f.payload(launchId));
   assert.equal((await f.store.get(proposalId)).stage, 'launched');
 });
+
+
+test('Close client identifies only its own 404 as a missing record', async () => {
+  const path = 'activity/custom/acti_example/';
+  const missing = createCloseClient({ CLOSE_API_KEY: 'fake' }, async () => new Response('{}', { status: 404 }));
+  await assert.rejects(missing(path), CloseRecordNotFound);
+  await assert.rejects(missing(path, { 'custom.cf_status': 'paid' }), CloseRecordNotFound);
+  for (const status of [401, 403, 429, 500, 503]) {
+    const client = createCloseClient({ CLOSE_API_KEY: 'fake' }, async () => new Response('{}', { status }));
+    await assert.rejects(client(path), e => e.status === status && !(e instanceof CloseRecordNotFound));
+  }
+});
+
+for (const writeRace of [false, true]) {
+  test(`deleted Close record after launch stops sync retries (${writeRace ? 'PUT race' : 'GET 404'}) without Stripe writes`, async () => {
+    const options = {}, f = fixture(options);
+    await f.service.onClose(f.payload(proposalId)); await f.deposit(); await f.service.onClose(f.payload(launchId));
+    const before = structuredClone(await f.store.get(proposalId));
+    const writesBefore = f.writes.length;
+    options.closeError = new CloseRecordNotFound(); options.closeErrorOnWrite = writeRace;
+    f.data['subscriptions/sub_hosting'].status = 'active';
+    f.data['invoices/in_trial'].amount_due = 14900;
+    const event = { type: 'invoice.paid', data: { object: { id: 'in_trial' } } };
+    f.data['invoices/in_trial'].subscription = 'sub_hosting';
+    await f.service.onStripe(event);
+    const marked = await f.store.get(proposalId);
+    assert.equal(marked.closeSync.status, 'record_missing');
+    assert.match(marked.closeSync.lastBillingStatus, /latest invoice paid/);
+    assert.deepEqual({ ...marked, closeSync: undefined }, { ...before, closeSync: undefined });
+    assert.equal(f.writes.length, writesBefore);
+    const calls = f.closeCalls.length;
+    f.data['invoices/in_trial'].status = 'open';
+    await f.service.onStripe({ ...event, type: 'invoice.payment_failed' });
+    assert.equal(f.closeCalls.length, calls, 'No further calls to the missing CRM record');
+    assert.match((await f.store.get(proposalId)).closeSync.lastBillingStatus, /payment needs attention/);
+    assert.equal(f.writes.length, writesBefore, 'No cancellation, new charge or subscription writes');
+  });
+}
+
+test('temporary Close failures and generic 404s still retry without detaching', async () => {
+  const options = {}, f = fixture(options);
+  await f.service.onClose(f.payload(proposalId)); await f.deposit(); await f.service.onClose(f.payload(launchId));
+  const event = { type: 'customer.subscription.updated', data: { object: { id: 'sub_hosting' } } };
+  for (const status of [401, 403, 404, 429, 500, 503, undefined]) {
+    options.closeError = Object.assign(new Error('temporary failure'), { status });
+    await assert.rejects(f.service.onStripe(event), /temporary failure/);
+    assert.equal((await f.store.get(proposalId)).closeSync, undefined);
+  }
+  options.closeError = null;
+  await f.service.onStripe(event);
+});
+
+test('missing-record flag is durable before webhook succeeds and blocks new launch writes', async () => {
+  const options = {}, f = fixture(options);
+  await f.service.onClose(f.payload(proposalId)); await f.deposit();
+  options.closeError = new CloseRecordNotFound();
+  await f.service.onStripe({ type: 'checkout.session.completed', data: { object: { id: 'cs_test_paid' } } });
+  assert.equal((await f.store.get(proposalId)).closeSync.status, 'record_missing');
+  options.closeError = null;
+  const before = f.writes.length;
+  await f.service.onClose(f.payload(launchId));
+  assert.equal(f.writes.length, before);
+  assert.match(f.activities[launchId]['custom.cf_result'], /original Close proposal is missing/);
+});
+
+test('failure to persist the missing-record flag is not acknowledged', async () => {
+  const options = {}, f = fixture(options);
+  await f.service.onClose(f.payload(proposalId)); await f.deposit(); await f.service.onClose(f.payload(launchId));
+  options.closeError = new CloseRecordNotFound();
+  const lock = f.store.withLock.bind(f.store);
+  f.store.withLock = (id, fn) => lock(id, (p, tx) => fn(p, { ...tx, save: async state => {
+    if (state.closeSync) throw new Error('Database temporarily unavailable');
+    return tx.save(state);
+  }}));
+  await assert.rejects(f.service.onStripe({ type: 'customer.subscription.updated', data: { object: { id: 'sub_hosting' } } }), /Database temporarily unavailable/);
+  assert.equal((await f.store.get(proposalId)).closeSync, undefined);
+});
+
+for (const paths of [undefined, fixedPaths]) {
+  test(`delayed Close events for removed activities do not retry or charge (${paths ? 'routed' : 'legacy'})`, async () => {
+    const options = { paths }, f = fixture(options);
+    options.closeError = new CloseRecordNotFound();
+    await f.service.onClose(f.payload(proposalId));
+    await f.service.onClose(f.payload(launchId));
+    assert.equal(f.writes.length, 0);
+    options.closeError = Object.assign(new Error('Close temporarily unavailable'), { status: 503 });
+    await assert.rejects(f.service.onClose(f.payload(proposalId)), /temporarily unavailable/);
+  });
+}
