@@ -6,19 +6,65 @@ const id = location.hash.slice(1);
 window.addEventListener('hashchange', () => location.reload());
 
 try {
-  if (!/^plink_[A-Za-z0-9]{12,100}$/.test(id)) throw new Error('Open the personal proposal link our team shared with you to see your agreed pricing.');
+  if (!/^(?:plink_[A-Za-z0-9]{12,100}|host_[a-f0-9]{64})$/.test(id)) throw new Error('Open the personal proposal link our team shared with you to see your agreed pricing.');
   const response = await fetch(`/api/proposal?id=${encodeURIComponent(id)}`, { cache: 'no-store', referrerPolicy: 'no-referrer' });
   const proposal = await response.json();
   if (!response.ok) throw new Error(proposal.error);
   $('proposal-title').textContent = proposal.title;
   for (const [element, value] of Object.entries({ total: proposal.buildTotal, balance: proposal.balance, hosting: proposal.monthlyHosting, deposit: proposal.deposit })) $(element).textContent = money(value);
   $('test-mode').hidden = !proposal.testMode;
-  if (proposal.preview) {
+  const hostingOnly = proposal.kind === 'hosting_only_v1';
+  if (hostingOnly) {
+    $('intro-lead').textContent = 'Your website build is included. One clear monthly hosting price, starting when your website launches.';
+    const steps = [
+      ['Save your card', 'Accept your hosting plan and securely save your card with Stripe. Nothing due today.'],
+      ['Launch your website', 'We notify you when your website is live. Your first monthly hosting payment is charged at launch.'],
+      ['Keep your website online', 'Your agreed hosting rate renews monthly until canceled.']
+    ];
+    $('timeline').replaceChildren();
+    steps.forEach(([title, copy], i) => {
+      const li = document.createElement('li'), number = document.createElement('span'), div = document.createElement('div');
+      number.className = 'step'; number.textContent = `0${i + 1}`;
+      const h = document.createElement('h2'), p = document.createElement('p'); h.textContent = title; p.textContent = copy;
+      div.append(h, p); li.append(number, div); $('timeline').append(li);
+    });
+    $('total').textContent = 'Included'; $('balance-row').hidden = true;
+    $('hosting-start').textContent = 'First payment at website launch. Renews monthly until canceled.';
+    $('due-label').textContent = 'Nothing due today';
+    $('checkout').textContent = 'Accept plan & save card ↗';
+    document.querySelector('.secure').textContent = 'Your card is saved securely by Stripe. No charge today.';
+    $('closed').textContent = 'This proposal is no longer open for card setup. If you already saved your card, nothing is due until launch. Contact us if you need help.';
+    document.querySelector('.terms a').href = '/hosting-terms/';
+  }
+  if (hostingOnly && proposal.active) {
+    $('checkout').href = '#';
+    $('checkout').addEventListener('click', async event => {
+      event.preventDefault();
+      if ($('checkout').getAttribute('aria-disabled') === 'true') return;
+      $('checkout').setAttribute('aria-disabled', 'true'); $('checkout').textContent = 'Opening secure card setup…';
+      try {
+        const response = await fetch('/api/hosting-checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id }), referrerPolicy: 'no-referrer' });
+        const data = await response.json();
+        if (!response.ok || !/^https:\/\/checkout\.stripe\.com\//.test(data.checkoutUrl || '')) throw new Error(data.error || 'Unable to open Stripe.');
+        location.assign(data.checkoutUrl);
+      } catch (error) {
+        $('closed').textContent = error.message; $('closed').hidden = false;
+        $('checkout').setAttribute('aria-disabled', 'false'); $('checkout').textContent = 'Accept plan & save card ↗';
+      }
+    });
+  } else if (proposal.preview) {
     $('test-mode').textContent = 'Layout preview · Example pricing · Checkout disabled';
     $('checkout').setAttribute('aria-disabled', 'true');
   } else if (proposal.active && /^https:\/\/buy\.stripe\.com\//.test(proposal.checkoutUrl)) $('checkout').href = proposal.checkoutUrl;
   else { $('checkout').hidden = true; $('closed').hidden = false; }
-  const paragraphs = [
+  const paragraphs = hostingOnly ? [
+    `My website build is included. Nothing is due today. I authorize Limitless Marketing Group LLC to securely save my card through Stripe.`,
+    `I authorize $${(proposal.monthlyHosting / 100).toFixed(2)} USD in monthly hosting, with the first payment charged when my website launches, then monthly until canceled. The team will notify me when my website launches.`,
+    'Additional services or hosting price changes require my separate approval. My bank may require additional verification.',
+    'I can request cancellation of future hosting renewals by emailing contact@nolimitwebs.com before the next renewal. The service end date will be confirmed in writing.',
+    'I will accept these hosting billing terms in Stripe before saving my card.'
+  ] : [
     `I authorize Limitless Marketing Group LLC to collect my ${money(proposal.deposit)} USD deposit and securely save the payment method I provide through Stripe.`,
     `I authorize the remaining ${money(proposal.balance)} USD build balance to be charged when my website goes live, and ${money(proposal.monthlyHosting)} USD in monthly hosting starting 30 days after launch. Hosting continues monthly until canceled. The team will notify me of the launch date and first hosting billing date.`,
     'Additional services or hosting price changes require my separate approval. A payment may require additional bank verification, and I agree to update my payment method if needed.',
@@ -26,7 +72,7 @@ try {
     'I will be asked to accept these billing terms in Stripe before paying.',
   ];
   for (const text of paragraphs) { const p = document.createElement('p'); p.textContent = text; $('authorization').append(p); }
-  $('details').hidden = false;
+  $('details').hidden = false; $('intro').hidden = false;
 } catch (error) {
   $('error-text').textContent = error.message || 'We could not load your proposal. Please contact our team.';
   $('error').hidden = false;

@@ -6,6 +6,8 @@ import { createHmac } from 'node:crypto';
 import { BillingStore } from '../lib/billing-store.mjs';
 import { createBillingService } from '../lib/close-billing.mjs';
 import { dollarsToCents, verifyCloseEvent, LAUNCH_AUTHORIZATION, ReviewRequired } from '../lib/close.mjs';
+import { HOSTING_FLOW } from '../lib/hosting-billing.mjs';
+import { onRequest as hostingEndpoint } from '../functions/api/hosting-checkout.js';
 import { onRequest } from '../functions/api/close-webhook.js';
 
 const clock = Date.parse('2026-09-11T18:00:00Z');
@@ -50,9 +52,16 @@ function fixture(options = {}) {
     assert.ok(key, `Missing idempotency key: ${path}`);
     let result;
     if (path === 'prices') {
-      result = { id: `price_${++sequence}`, livemode: false, active: true, currency: 'usd', unit_amount: Number(params.unit_amount),
+      result = { id: `price_${++sequence}`, livemode: false, active: true, currency: 'usd', unit_amount: Number(params.unit_amount), metadata: metadata(params),
         recurring: params['recurring[interval]'] ? { interval: 'month', interval_count: 1 } : null };
       data[`prices/${result.id}`] = result;
+    } else if (path === 'customers') {
+      result = { id: 'cus_hosting', livemode: false, balance: 0, metadata: metadata(params), invoice_settings: {} };
+      data[`customers/${result.id}`] = result;
+    } else if (path === 'checkout/sessions') {
+      result = { id: `cs_test_setup${++sequence}`, livemode: false, mode: params.mode, status: 'open', customer: params.customer,
+        metadata: metadata(params), url: 'https://checkout.stripe.com/c/pay/test', amount_total: null };
+      data[`checkout/sessions/${result.id}`] = result;
     } else if (path === 'payment_links') {
       result = { id: 'plink_1234567890123456', livemode: false, active: true, metadata: metadata(params), url: 'https://buy.stripe.com/test_example',
         restrictions: { completed_sessions: { limit: 1 } }, customer_creation: 'always', invoice_creation: { enabled: true },
@@ -72,10 +81,18 @@ function fixture(options = {}) {
       if (declined) { const error = new Error('Declined'); error.status = 402; throw error; }
       result = data[path.replace('/pay', '')]; result.status = 'paid';
     } else if (path === 'subscriptions') {
+      if (!params.trial_end) {
+        result = { id: 'sub_hosting', livemode: false, customer: params.customer, metadata: metadata(params),
+          status: options.hostingDecline ? 'incomplete' : 'active', latest_invoice: 'in_hosting' };
+        data['subscriptions/sub_hosting'] = result;
+        data['invoices/in_hosting'] = { id: 'in_hosting', livemode: false, customer: params.customer,
+          status: options.hostingDecline ? 'open' : 'paid', amount_due: data[`prices/${params['items[0][price]']}`].unit_amount };
+      } else {
       result = { id: 'sub_hosting', livemode: false, customer: params.customer, metadata: metadata(params), status: 'trialing',
         trial_end: Number(params.trial_end), latest_invoice: 'in_trial' };
       data['subscriptions/sub_hosting'] = result;
       data['invoices/in_trial'] = { id: 'in_trial', livemode: false, customer: params.customer, status: 'paid', amount_due: 0 };
+      }
     } else if (path.startsWith('invoices/')) {
       result = data[path]; assert.ok(result); Object.assign(result.metadata, metadata(params));
     } else if (path.startsWith('customers/')) {
@@ -103,7 +120,16 @@ function fixture(options = {}) {
     data['customers/cus_client'] = { id: 'cus_client', livemode: false, balance: 0, invoice_settings: { default_payment_method: 'pm_card' } };
     await service.onStripe({ type: 'checkout.session.completed', data: { object: { id: 'cs_test_paid' } } });
   };
-  return { data, writes, closeWrites, activities, store, service, payload, deposit, decline() { declined = true; } };
+  const setup = async (mutate = () => {}) => {
+    const p = await store.get(proposalId), session = data[`checkout/sessions/${p.setupSessionId}`];
+    session.status = 'complete'; session.setup_intent = 'seti_setup'; session.consent = { terms_of_service: 'accepted' };
+    data['setup_intents/seti_setup'] = { id: 'seti_setup', livemode: false, status: 'succeeded', usage: 'off_session',
+      customer: p.customerId, payment_method: 'pm_hosting', metadata: structuredClone(session.metadata) };
+    data['payment_methods/pm_hosting'] = { id: 'pm_hosting', livemode: false, type: 'card', customer: p.customerId };
+    mutate({ session, intent: data['setup_intents/seti_setup'], method: data['payment_methods/pm_hosting'] });
+    await service.onStripe({ type: 'checkout.session.completed', data: { object: { id: session.id } } });
+  };
+  return { setup, data, writes, closeWrites, activities, store, service, payload, deposit, decline() { declined = true; } };
 }
 
 test('dollar inputs convert exactly without floating-point rounding', () => {
@@ -251,11 +277,103 @@ for (const [build, hosting] of [[500, 20], [1, 0]]) {
   });
 }
 test('invalid pricing is explained before any Stripe writes', async () => {
-  for (const [field, value] of [['build', 0], ['build', -1], ['hosting', -1], ['hosting', 'bad']]) {
+  for (const [field, value] of [['build', -1], ['hosting', -1], ['hosting', 'bad']]) {
     const f = fixture(); f.activities[proposalId][`custom.cf_${field}`] = value;
     await f.service.onClose(f.payload(proposalId));
     assert.equal(f.writes.length, 0);
     assert.match(f.activities[proposalId]['custom.cf_status'], /Review required/);
     assert.doesNotMatch(f.activities[proposalId]['custom.cf_status'], /1,000|at least \$50/);
   }
+});
+
+async function hostingFixture(options = {}) {
+  const f = fixture(options);
+  f.activities[proposalId]['custom.cf_build'] = 0;
+  f.activities[proposalId]['custom.cf_hosting'] = 299;
+  await f.service.onClose(f.payload(proposalId));
+  f.token = (await f.store.get(proposalId)).linkId;
+  return f;
+}
+test('hosting-only card setup does not charge; launch collects first month once without trial or build invoices', async () => {
+  const f = await hostingFixture();
+  assert.match(f.token, /^host_[a-f0-9]{64}$/);
+  const proposal = await f.service.hostingProposal(f.token);
+  assert.equal(proposal.kind, HOSTING_FLOW); assert.equal(proposal.monthlyHosting, 29900); assert.equal(proposal.deposit, 0);
+  await f.service.hostingCheckout(f.token); await f.service.hostingCheckout(f.token);
+  assert.equal(f.writes.filter(w => w.path === 'customers').length, 1);
+  assert.equal(f.writes.filter(w => w.path === 'checkout/sessions').length, 1);
+  assert.ok(!f.writes.some(w => ['invoices', 'subscriptions', 'payment_links'].includes(w.path)));
+  const params = f.writes.find(w => w.path === 'checkout/sessions').params;
+  assert.equal(params.mode, 'setup'); assert.equal(params['consent_collection[terms_of_service]'], 'required');
+  assert.match(params['custom_text[terms_of_service_acceptance][message]'], /299.00 USD monthly/);
+  await f.setup();
+  assert.equal(f.activities[proposalId]['custom.cf_deposit'], proposalId);
+  assert.match(f.activities[proposalId]['custom.cf_status'], /Card saved/);
+  assert.equal((await f.service.hostingProposal(f.token)).active, false);
+  await assert.rejects(f.service.hostingCheckout(f.token));
+  f.activities[launchId]['custom.cf_invoice'] = proposalId;
+  await f.service.onClose(f.payload(launchId));
+  const sub = f.writes.find(w => w.path === 'subscriptions').params;
+  assert.equal(sub.trial_end, undefined); assert.equal(sub.payment_behavior, 'allow_incomplete'); assert.equal(sub.off_session, 'true');
+  assert.equal(f.data['invoices/in_hosting'].amount_due, 29900);
+  assert.ok(!f.writes.some(w => ['invoices', 'invoiceitems'].includes(w.path)));
+  assert.match(f.activities[proposalId]['custom.cf_status'], /latest invoice paid/);
+  await f.service.onClose(f.payload(launchId)); await f.setup();
+  assert.equal(f.writes.filter(w => w.path === 'subscriptions').length, 1);
+  assert.equal(f.writes.filter(w => w.path === 'customers/cus_hosting').length, 1);
+});
+test('hosting decline stays visible and retries do not create a second subscription', async () => {
+  const f = await hostingFixture({ hostingDecline: true }); await f.service.hostingCheckout(f.token); await f.setup();
+  f.activities[launchId]['custom.cf_invoice'] = proposalId;
+  await f.service.onClose(f.payload(launchId)); await f.service.onClose(f.payload(launchId));
+  assert.match(f.activities[proposalId]['custom.cf_status'], /Hosting incomplete.*payment needs attention/);
+  assert.equal(f.writes.filter(w => w.path === 'subscriptions').length, 1);
+});
+test('lost subscription response resumes the same hosting-only first charge', async () => {
+  const f = await hostingFixture({ loseResponseFor: 'subscriptions' }); await f.service.hostingCheckout(f.token); await f.setup();
+  f.activities[launchId]['custom.cf_invoice'] = proposalId;
+  await assert.rejects(f.service.onClose(f.payload(launchId)), /Response lost/);
+  await f.service.onClose(f.payload(launchId));
+  assert.equal(f.writes.filter(w => w.path === 'subscriptions').length, 1);
+});
+test('expired setup checkout can renew while reusing its single customer', async () => {
+  const f = await hostingFixture(); await f.service.hostingCheckout(f.token);
+  const p = await f.store.get(proposalId); f.data[`checkout/sessions/${p.setupSessionId}`].status = 'expired';
+  await f.service.hostingCheckout(f.token); await f.setup();
+  assert.equal(f.writes.filter(w => w.path === 'customers').length, 1);
+  assert.equal(f.writes.filter(w => w.path === 'checkout/sessions').length, 2);
+});
+for (const [name, mutate] of [
+  ['missing consent', ({ session }) => { session.consent = null; }],
+  ['wrong amount', ({ session }) => { session.metadata.hosting_monthly_cents = '1'; }],
+  ['wrong mode', ({ session }) => { session.livemode = true; }],
+  ['unconfirmed setup', ({ intent }) => { intent.status = 'requires_action'; }],
+  ['wrong customer card', ({ method }) => { method.customer = 'cus_other'; }],
+  ['wrong authorization', ({ intent }) => { intent.metadata.authorization_version = 'old'; }],
+]) test(`hosting authorization rejects ${name}`, async () => {
+  const f = await hostingFixture(); await f.service.hostingCheckout(f.token);
+  await assert.rejects(f.setup(mutate)); assert.equal((await f.store.get(proposalId)).setupAccepted, undefined);
+  assert.ok(!f.writes.some(w => w.path === 'subscriptions'));
+});
+test('hosting launch requires setup, same lead and exact authorization', async () => {
+  const f = await hostingFixture(); f.activities[launchId]['custom.cf_invoice'] = proposalId;
+  await f.service.onClose(f.payload(launchId)); assert.ok(!f.writes.some(w => w.path === 'subscriptions'));
+  await f.service.hostingCheckout(f.token); await f.setup();
+  f.activities[launchId].lead_id = 'lead_other';
+  await f.service.onClose(f.payload(launchId)); assert.ok(!f.writes.some(w => w.path === 'subscriptions'));
+  f.activities[launchId].lead_id = leadId; f.activities[launchId]['custom.cf_authorization'] = 'Yes';
+  await f.service.onClose(f.payload(launchId)); assert.ok(!f.writes.some(w => w.path === 'subscriptions'));
+});
+test('edited or removed hosting proposals cannot start checkout and tokens cannot cross environments', async () => {
+  const f = await hostingFixture();
+  await assert.rejects(f.service.hostingProposal('host_' + 'a'.repeat(64)));
+  f.activities[proposalId]['custom.cf_hosting'] = 1;
+  await assert.rejects(f.service.hostingCheckout(f.token));
+  delete f.activities[proposalId]; await assert.rejects(f.service.hostingProposal(f.token));
+  assert.ok(!f.writes.some(w => w.path === 'customers'));
+});
+test('hosting setup endpoint rejects cross-origin requests and invalid methods before writes', async () => {
+  assert.equal((await hostingEndpoint({ request: new Request('https://example.com'), env })).status, 405);
+  assert.equal((await hostingEndpoint({ request: new Request('https://example.com', { method: 'POST', headers: {
+    origin: 'https://evil.example', 'content-type': 'application/json' }, body: '{}' }), env })).status, 403);
 });
