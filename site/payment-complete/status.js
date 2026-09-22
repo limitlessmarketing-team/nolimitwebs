@@ -21,6 +21,11 @@ try {
       paid = true; $('mark').textContent = '✓'; $('title').textContent = data.paymentPlan === 'full_upfront' ? 'Your website is paid in full.' : 'Your deposit is paid.';
       $('status').textContent = 'Thank you. Your payment has been confirmed by Stripe.';
       if (data.paymentPlan === 'full_upfront') $('next').textContent = data.monthlyHosting > 0 ? 'No build balance is due at launch. We’ll confirm your launch date; monthly hosting starts 30 days later.' : 'No build balance is due at launch and no monthly hosting is scheduled.';
+      if (data.buildTotal === 0 && data.domainAmount > 0) {
+        $('title').textContent = 'Your domain payment is confirmed.';
+        $('next').textContent = 'Your website build is included. Monthly hosting starts at website launch.';
+      } else if (!data.monthlyHosting && data.paymentPlan !== 'full_upfront') $('next').textContent = 'Your remaining 50% website build balance is due at launch. No monthly hosting is included.';
+      if (data.domainAmount > 0) $('next').textContent += ` Domain registration for ${data.domainName} renews automatically at $${(data.domainAmount/100).toFixed(2)} per year, starting one year after this payment, until canceled.`;
       $('next').hidden = false;
       if (data.invoiceUrl) { $('invoice').href = data.invoiceUrl; $('invoice').hidden = false; }
       break;

@@ -221,3 +221,37 @@ lead, organization, activity type and agreed prices. Only then may an administra
 clear the `closeSync` flag in the project state so the next payment notification
 can update the restored activity. A new lead has a different identity and requires
 an explicit reconciliation. A flagged project cannot trigger a new launch charge.
+
+## Optional domain registration and annual billing
+
+Each of the four proposal actions can include **Domain name (optional)** and
+**Domain price (USD/year)**. Enter the domain only (example.com) and the dollar
+amount. Leave both blank for clients who supply their own domain. The annual
+amount must be at least Stripe's $0.50 USD collection minimum.
+
+The initial invoice lists domain registration separately, paid in full upfront.
+A 50% website deposit applies only to the website build. Domain registration is
+never charged again at launch. For hosting-only projects with a domain, checkout
+collects the domain payment and saves the card; hosting still starts at launch.
+
+After a verified successful payment, a separate annual domain subscription is
+created with its first renewal one calendar year after the invoice payment time.
+The amount stays the same. February 29 renewals use February 28 in non-leap years.
+No proration or additional domain charge is created during setup. The proposal,
+Stripe checkout authorization, invoice description and confirmation explain this.
+
+Launch uses the same proposal reference; there is no second domain-price input.
+**Domain renewal subscription** identifies the separate Stripe subscription.
+Hosting cancellation does not cancel domains, and domain cancellation does not
+cancel hosting. Reps should request the intended cancellation from an admin.
+
+Stripe collects payment only. Purchase and actual renewal with the registrar,
+registrant ownership, renewal failure handling, and any transfers must still be
+managed separately. Existing proposals and subscriptions are not retroactively
+charged for domains. To change pricing, retire the old link and issue a new
+proposal for the client's approval.
+
+Rollout: deploy code to sandbox, run tools/configure-domain-fields.py test with an
+approved temporary Close key, apply the resulting test route configuration,
+verify all four paths with sandbox payments and renewals, then repeat the field
+configuration for live and deploy. Revoke the temporary key afterward.

@@ -121,3 +121,30 @@ for(const [name,mutate] of [
 ]) test(`full checkout rejects ${name}`,async()=>{
   const d=fullFixtures();mutate(d);const m=mock(d);await assert.rejects(completeDeposit(sessionId,m.api));assert.equal(m.writes.length,0);
 });
+
+function domainFixtures() {
+  const d=fixtures(), extra={domain_name:'example.com',domain_amount_cents:'2000',domain_authorization_version:'domain-annual-2026-09-22'};
+  d[`payment_links/${linkId}`].metadata={...metadata,...extra};
+  d[`checkout/sessions/${sessionId}`].metadata={...metadata,...extra};
+  d[`payment_links/${linkId}/line_items?limit=2`].data.push({quantity:1,currency:'usd',price:{unit_amount:2000,metadata:extra}});
+  d[`checkout/sessions/${sessionId}`].amount_total=102000; d[`checkout/sessions/${sessionId}`].amount_subtotal=102000;
+  d['invoices/in_deposit'].amount_paid=102000; d['invoices/in_deposit'].subtotal_excluding_tax=102000;
+  return d;
+}
+test('domain is separate from the 50% build deposit and persisted authorization',async()=>{
+  const d=domainFixtures(),m=mock(d),{public:p}=await readProposal(linkId,m.api);
+  assert.equal(p.deposit,100000); assert.equal(p.balance,100000); assert.equal(p.totalDue,102000);
+  await completeDeposit(sessionId,m.api);
+  assert.equal(m.writes[1].params['metadata[authorized_domain_amount_cents]'],'2000');
+  assert.equal(m.writes[1].params['metadata[authorized_domain_name]'],'example.com');
+});
+for (const [label,change] of [
+  ['missing domain line',d=>d[`payment_links/${linkId}/line_items?limit=2`].data.pop()],
+  ['changed domain line amount',d=>d[`payment_links/${linkId}/line_items?limit=2`].data[1].price.unit_amount=3000],
+  ['unapproved annual billing',d=>delete d[`payment_links/${linkId}`].metadata.domain_authorization_version],
+  ['changed checkout domain',d=>d[`checkout/sessions/${sessionId}`].metadata.domain_name='another.com'],
+  ['underpaid combined invoice',d=>d['invoices/in_deposit'].amount_paid=100000]
+]) test(`domain payment rejects ${label}`,async()=>{
+  const d=domainFixtures();change(d);const m=mock(d);
+  await assert.rejects(completeDeposit(sessionId,m.api));assert.equal(m.writes.length,0);
+});

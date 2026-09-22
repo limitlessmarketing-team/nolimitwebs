@@ -1,3 +1,4 @@
+import { anniversary, domainInput, DOMAIN_TERMS } from '../lib/domain-billing.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
@@ -14,7 +15,7 @@ const clock = Date.parse('2026-09-11T18:00:00Z');
 const proposalId = 'acti_project1', launchId = 'acti_launch1', leadId = 'lead_client1';
 const config = { mode: 'test', organizationId: 'orga_company', subscriptionId: 'whsub_billing',
   proposalType: 'actitype_proposal', launchType: 'actitype_launch', enabledAfter: '2026-09-11T00:00:00Z',
-  proposalFields: Object.fromEntries(['paymentPlan', 'project', 'build', 'hosting', 'status', 'link', 'deposit', 'final', 'subscription'].map(n => [n, `cf_${n}`])),
+  proposalFields: Object.fromEntries(['domainName', 'domainAmount', 'domainSubscription', 'paymentPlan', 'project', 'build', 'hosting', 'status', 'link', 'deposit', 'final', 'subscription'].map(n => [n, `cf_${n}`])),
   launchFields: { invoice: 'cf_invoice', authorization: 'cf_authorization', result: 'cf_result' } };
 const env = { STRIPE_MODE: 'test', STRIPE_SECRET_KEY: 'rk_test_fake', CLOSE_BILLING_ENABLED: 'true', CLOSE_BILLING_CONFIG: JSON.stringify(config) };
 
@@ -55,7 +56,7 @@ function fixture(options = {}) {
     let result;
     if (path === 'prices') {
       result = { id: `price_${++sequence}`, livemode: false, active: true, currency: 'usd', unit_amount: Number(params.unit_amount), metadata: metadata(params),
-        recurring: params['recurring[interval]'] ? { interval: 'month', interval_count: 1 } : null };
+        recurring: params['recurring[interval]'] ? { interval: params['recurring[interval]'], interval_count: 1 } : null };
       data[`prices/${result.id}`] = result;
     } else if (path === 'customers') {
       result = { id: 'cus_hosting', livemode: false, balance: 0, metadata: metadata(params), invoice_settings: {} };
@@ -70,7 +71,7 @@ function fixture(options = {}) {
         consent_collection: { terms_of_service: 'required' }, payment_intent_data: { setup_future_usage: 'off_session' }, payment_method_types: ['card'] };
       data[`payment_links/${result.id}`] = result;
       data[`payment_links/${result.id}/line_items?limit=2`] = { has_more: false,
-        data: [{ currency: 'usd', quantity: 1, price: data[`prices/${params['line_items[0][price]']}`] }] };
+        data: [0,1].filter(i => params[`line_items[${i}][price]`]).map(i => ({ currency: 'usd', quantity: 1, price: data[`prices/${params[`line_items[${i}][price]`]}`] })) };
     } else if (path === 'invoices') {
       result = { id: 'in_final', livemode: false, status: 'draft', customer: params.customer, metadata: metadata(params), currency: 'usd', total: 0, subtotal: 0 };
       data['invoices/in_final'] = result;
@@ -83,7 +84,10 @@ function fixture(options = {}) {
       if (declined) { const error = new Error('Declined'); error.status = 402; throw error; }
       result = data[path.replace('/pay', '')]; result.status = 'paid';
     } else if (path === 'subscriptions') {
-      if (!params.trial_end) {
+      if (params['metadata[billing_phase]'] === 'domain_renewal') {
+        result = { id: 'sub_domain', livemode: false, customer: params.customer, metadata: metadata(params), status: 'active', billing_cycle_anchor: Number(params.billing_cycle_anchor), latest_invoice: null };
+        data['subscriptions/sub_domain'] = result;
+      } else if (!params.trial_end) {
         result = { id: 'sub_hosting', livemode: false, customer: params.customer, metadata: metadata(params),
           status: options.hostingDecline ? 'incomplete' : 'active', latest_invoice: 'in_hosting' };
         data['subscriptions/sub_hosting'] = result;
@@ -117,13 +121,13 @@ function fixture(options = {}) {
     organization_id: config.organizationId, lead_id: activities[id].lead_id, object_type: 'activity.custom_activity', action: 'created' } });
   const deposit = async () => {
     const p = await store.get(proposalId), link = data[`payment_links/${p.linkId}`];
-    const paidAmount = p.paymentPlan === 'full_upfront' ? p.build : p.build / 2;
+    const paidAmount = (p.paymentPlan === 'full_upfront' ? p.build : p.build / 2) + (p.domainAmount || 0);
     const md = { close_project_id: p.id, close_lead_id: p.leadId, close_organization_id: config.organizationId };
     data['checkout/sessions/cs_test_paid'] = { id: 'cs_test_paid', livemode: false, metadata: structuredClone(link.metadata), status: 'complete', payment_status: 'paid',
       mode: 'payment', consent: { terms_of_service: 'accepted' }, payment_link: p.linkId, customer: 'cus_client', invoice: 'in_deposit',
       payment_intent: 'pi_deposit', currency: 'usd', amount_total: paidAmount, amount_subtotal: paidAmount };
     data['invoices/in_deposit'] = { id: 'in_deposit', livemode: false, customer: 'cus_client', status: 'paid', currency: 'usd', amount_paid: paidAmount,
-      subtotal_excluding_tax: paidAmount, metadata: { ...md, launch_status: 'awaiting_checkout' } };
+      subtotal_excluding_tax: paidAmount, status_transitions: { paid_at: clock / 1000 }, metadata: { ...md, launch_status: 'awaiting_checkout' } };
     data['payment_intents/pi_deposit'] = { id: 'pi_deposit', status: 'succeeded', setup_future_usage: 'off_session', customer: 'cus_client', payment_method: 'pm_card', amount_received: paidAmount };
     data['payment_intents/pi_deposit?expand[]=latest_charge'] = { ...data['payment_intents/pi_deposit'], latest_charge: { amount_refunded: 0, disputed: false, refunded: false } };
     data['payment_methods/pm_card'] = { id: 'pm_card', customer: 'cus_client', type: 'card' };
@@ -574,3 +578,77 @@ for (const paths of [undefined, fixedPaths]) {
     await assert.rejects(f.service.onClose(f.payload(proposalId)), /temporarily unavailable/);
   });
 }
+
+for (const path of ['deposit_hosting', 'full_hosting', 'hosting_only', 'website_only']) {
+  test(`optional domain: ${path} pays first year once and schedules separate annual renewal`, async () => {
+    const route = { billingPath: path, proposalType: 'actitype_domainproposal', launchType: 'actitype_domainlaunch', proposalFields: config.proposalFields, launchFields: config.launchFields };
+    const f = fixture({ paths: [route], route });
+    f.activities[proposalId]['custom.cf_domainName'] = 'Example.COM';
+    f.activities[proposalId]['custom.cf_domainAmount'] = 20;
+    await f.service.onClose(f.payload(proposalId));
+    let p = await f.store.get(proposalId);
+    const link = f.writes.find(w => w.path === 'payment_links');
+    assert.ok(link.params['custom_text[terms_of_service_acceptance][message]'].includes('then the same amount annually'));
+    assert.equal(p.domainName, 'example.com');
+    assert.equal(f.data[`payment_links/${p.linkId}/line_items?limit=2`].data.length, path === 'hosting_only' ? 1 : 2);
+    await f.deposit();
+    await f.service.onStripe({ type: 'checkout.session.completed', data: { object: { id: 'cs_test_paid' } } });
+    p = await f.store.get(proposalId);
+    assert.equal(p.domainSubscriptionId, 'sub_domain');
+    const domain = f.writes.filter(w => w.path === 'subscriptions' && w.params['metadata[billing_phase]'] === 'domain_renewal');
+    assert.equal(domain.length, 1);
+    assert.equal(domain[0].params.billing_cycle_anchor, String(anniversary(clock / 1000)));
+    assert.equal(domain[0].params.proration_behavior, 'none');
+    assert.equal(f.writes.filter(w => w.path === 'prices' && w.params['recurring[interval]'] === 'year').length, 1);
+    assert.equal(p.subscriptionId, undefined); // Monthly hosting waits for launch.
+    await f.service.onClose(f.payload(launchId));
+    p = await f.store.get(proposalId);
+    assert.equal(p.stage, 'launched');
+    assert.equal(f.writes.filter(w => w.path.endsWith('/pay')).length, ['deposit_hosting','website_only'].includes(path) ? 1 : 0);
+    if (p.finalId) assert.equal(f.data[`invoices/${p.finalId}`].total, 175000); // Domain never split or recharged.
+    const hosting = f.writes.find(w => w.path === 'subscriptions' && w.params['metadata[billing_phase]'] === 'hosting');
+    if (path === 'website_only') assert.equal(hosting, undefined);
+    else if (path === 'hosting_only') assert.equal(hosting.params.trial_end, undefined);
+    else assert.equal(hosting.params.trial_end, String(clock/1000 + 30*86400));
+    f.data['subscriptions/sub_domain'].status = 'canceled';
+    await f.service.onStripe({ type: 'customer.subscription.deleted', data: { object: { id: 'sub_domain' } } });
+    assert.match(f.activities[proposalId]['custom.cf_status'], /Domain renewal canceled/);
+    if (p.subscriptionId) assert.notEqual(f.data[`subscriptions/${p.subscriptionId}`].status, 'canceled');
+  });
+}
+test('domain anniversary uses calendar year and handles leap day', () => {
+  assert.equal(new Date(anniversary(Date.parse('2028-02-29T10:30:00Z')/1000)*1000).toISOString(), '2029-02-28T10:30:00.000Z');
+});
+test('domain fields reject partial, malformed and subminimum renewal amounts', () => {
+  const fields = { domainName: 'cf_name', domainAmount: 'cf_price' };
+  assert.deepEqual(domainInput({}, fields), { domainName: '', domainAmount: 0 });
+  for (const [name, price] of [['example.com',0], ['',20], ['https://example.com',20], ['example.com',0.49], ['bad domain',20]]) {
+    assert.throws(() => domainInput({'custom.cf_name':name,'custom.cf_price':price},fields));
+  }
+});
+test('edited domain amount cannot change an already-issued proposal', async () => {
+  const f=fixture(); f.activities[proposalId]['custom.cf_domainName']='example.com';f.activities[proposalId]['custom.cf_domainAmount']=20;
+  await f.service.onClose(f.payload(proposalId)); f.activities[proposalId]['custom.cf_domainAmount']=25;
+  await f.service.onClose(f.payload(proposalId));
+  assert.match(f.activities[proposalId]['custom.cf_status'], /locked to its original prices/);
+  assert.equal(f.writes.filter(w=>w.path==='payment_links').length,1);
+});
+
+test('annual domain setup resumes after a lost response without duplicate subscription', async () => {
+  const f=fixture({loseResponseFor:'subscriptions'});
+  f.activities[proposalId]['custom.cf_domainName']='example.com'; f.activities[proposalId]['custom.cf_domainAmount']=20;
+  await f.service.onClose(f.payload(proposalId));
+  await assert.rejects(f.deposit(), /Response lost/);
+  await f.service.onStripe({type:'checkout.session.completed',data:{object:{id:'cs_test_paid'}}});
+  assert.equal((await f.store.get(proposalId)).domainSubscriptionId,'sub_domain');
+  assert.equal(f.writes.filter(w=>w.path==='subscriptions').length,1);
+});
+test('unpaid domain checkout cannot schedule annual renewal or enable launch', async () => {
+  const f=fixture(); f.activities[proposalId]['custom.cf_domainName']='example.com'; f.activities[proposalId]['custom.cf_domainAmount']=20;
+  await f.service.onClose(f.payload(proposalId));
+  const p=await f.store.get(proposalId);
+  f.data['checkout/sessions/cs_test_unpaid']={id:'cs_test_unpaid',livemode:false,metadata:{...f.data[`payment_links/${p.linkId}`].metadata},payment_link:p.linkId,status:'open',payment_status:'unpaid'};
+  await f.service.onStripe({type:'checkout.session.completed',data:{object:{id:'cs_test_unpaid'}}});
+  assert.equal((await f.store.get(proposalId)).depositId,undefined);
+  assert.equal(f.writes.filter(w=>w.path==='subscriptions').length,0);
+});
