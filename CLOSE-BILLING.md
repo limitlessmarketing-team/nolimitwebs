@@ -1,4 +1,4 @@
-# Close billing integration — sandbox connected
+# Close billing integration — production connected
 
 This branch implements native Close Custom Activities connected to the existing
 Cloudflare Pages billing backend. It is disabled unless `CLOSE_BILLING_ENABLED`
@@ -22,9 +22,31 @@ introduced.
    subscription with its first payment 30 days after that launch action.
    Hosting renews monthly until canceled. Close shows the latest payment state.
 
-Both forms currently have **(sandbox)** in their names and must not be used with
-real clients. Each proposal activity is one project; multiple projects may
+Use **Create website proposal** and **Website launched** for real clients.
+The separate forms with **(sandbox)** in their names are for tests only. Each proposal activity is one project; multiple projects may
 belong to the same Lead. Output fields are optional and filled automatically.
+
+## Hosting-only projects ($0 website build)
+
+Use the same **Create website proposal** action, entering 0 for the build and a
+positive monthly hosting price. The proposal shows “Website build included” and
+“Nothing due today.” The client accepts hosting-specific terms and saves a card
+through Stripe Checkout setup mode. No deposit, build invoice or subscription
+is created during card setup.
+
+After Stripe verifies consent and card setup, Close shows **Card saved** and a
+launch reference beginning `acti_` in the proposal's launch-reference field.
+For **Website launched**, paste that reference (instead of an `in_` deposit ID),
+confirm the same launch authorization, and publish. Stripe attempts the first
+monthly hosting charge immediately and renews monthly with no trial. A failed
+or authentication-required first charge remains visible in Close; recover its
+existing invoice in Stripe rather than creating another launch/subscription.
+
+Proposal links are random bearer capabilities: share them only with the client.
+Deleting the source proposal or changing its prices disables hosting checkout.
+One customer is reused across setup retries; an expired Checkout session can be
+renewed from the original proposal link. Accepted proposals cannot save another
+card via that link. Cancellation of an existing subscription is handled in Stripe.
 
 ## Native forms
 
@@ -54,8 +76,8 @@ Server-only secrets:
   subscription creation. Never put it in the browser bundle or Git.
 - `STRIPE_SECRET_KEY`: restricted key in the matching Stripe test/live account.
   Requires write access for Prices, Products, Payment Links, Customers, Invoices,
-  Invoice Items and Subscriptions; read access for Checkout Sessions, Payment
-  Intents, Payment Methods and Charges. No refunds or payouts are requested.
+  Invoice Items, Subscriptions and Checkout Sessions; read access for Setup
+  Intents, Payment Intents, Payment Methods and Charges. No refunds or payouts are requested.
 - Existing `STRIPE_WEBHOOK_SECRET`: retain the matching endpoint secret.
 
 Non-secret settings:
@@ -102,8 +124,10 @@ Keep the existing Stripe checkout events and add:
 ## Billing safeguards and recovery
 
 - Dollar amounts are parsed without floating-point rounding. Build prices must
-  be whole dollars, at least $1,000; hosting at least $50. Both remain adjustable
-  for each new proposal. The deposit is exactly half of the build.
+  be whole dollars. A positive build uses the deposit path (hosting may be $0).
+  A $0 build uses hosting-only and requires a positive monthly hosting price.
+  There are no business pricing floors. Stripe payment processing limits still apply.
+  Both remain adjustable for each new proposal. The deposit is exactly half of the build.
 - A published proposal’s title/prices are immutable in the billing ledger.
   To replace a proposal, deactivate its old Payment Link in Stripe before
   creating another activity. Editing the old activity never reprices a link.
@@ -138,7 +162,11 @@ Keep the existing Stripe checkout events and add:
 The approved sandbox is deployed at https://stripe-sandbox.nolimitwebs.pages.dev.
 PR #2 was merged into `stripe-sandbox`, not `main`. Cloudflare Preview has its
 own D1 database and server-only credentials, and the two native Close actions
-are labeled **(sandbox)**. Production activation remains pending.
+are labeled **(sandbox)**. Production was activated with PR #3, separate production activity types, encrypted
+server credentials, live Stripe webhook events, and an isolated D1 database.
+Production deployment: af04d4da-7eca-478b-9dcc-c250f998d0d8.
+No real client was charged or messaged during activation; full payment lifecycle
+validation was performed in Stripe sandbox.
 
 See `CLOSE-SANDBOX-RESULTS.md` for the actual provider test evidence.
 

@@ -16,7 +16,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
  */
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
-const NOTIFY_TO = Deno.env.get("LEAD_NOTIFY_TO") ?? "contact@nolimitwebs.com";
+const NOTIFY_TO = Deno.env.get("LEAD_NOTIFY_TO") ?? "contact@limitlessxcollective.com";
 const NOTIFY_FROM = Deno.env.get("LEAD_NOTIFY_FROM") ??
   "Limitless Leads <onboarding@resend.dev>";
 
@@ -48,6 +48,7 @@ type Lead = {
   email?: string;
   message?: string;
   created_at?: string;
+  sms_consent?: { opted_in?: boolean; recorded_at?: string; disclosure_version?: string; source_url?: string; phone?: string; disclosure_text?: string };
 };
 
 function row(label: string, value: string | undefined): string {
@@ -59,6 +60,10 @@ function row(label: string, value: string | undefined): string {
 }
 
 function buildEmail(lead: Lead): { subject: string; html: string; text: string } {
+  const consent = lead.sms_consent;
+  const smsStatus = consent?.opted_in === true
+    ? 'Opted in to inquiry/project texts only. Check current STOP/opt-out status before sending.'
+    : 'No SMS opt-in recorded. Use email or a call; do not enroll in SMS.';
   const who = (lead.name || "Someone").trim();
   const where = (lead.business || "").trim();
   const subject = where ? `New mockup request — ${who} (${where})` : `New mockup request — ${who}`;
@@ -74,6 +79,11 @@ function buildEmail(lead: Lead): { subject: string; html: string; text: string }
       ${row("Email", lead.email)}
       ${row("Message", lead.message)}
       ${row("Received", lead.created_at)}
+      ${row("SMS consent", smsStatus)}
+      ${row("Consent recorded", consent?.recorded_at)}
+      ${row("Consent source", consent?.source_url)}
+      ${row("Consent version", consent?.disclosure_version)}
+      ${row("Consent disclosure", consent?.disclosure_text)}
     </table>
     ${
     lead.phone
@@ -92,6 +102,11 @@ function buildEmail(lead: Lead): { subject: string; html: string; text: string }
     `Email:    ${lead.email ?? ""}`,
     `Message:  ${lead.message ?? ""}`,
     `Received: ${lead.created_at ?? ""}`,
+    `SMS consent: ${smsStatus}`,
+    `Consent recorded: ${consent?.recorded_at ?? ""}`,
+    `Consent source: ${consent?.source_url ?? ""}`,
+    `Consent version: ${consent?.disclosure_version ?? ""}`,
+    `Consent disclosure: ${consent?.disclosure_text ?? ""}`,
   ].join("\n");
 
   return { subject, html, text };

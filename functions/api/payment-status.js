@@ -1,3 +1,5 @@
+import { HOSTING_FLOW } from '../../lib/hosting-billing.mjs';
+import { BillingStore } from '../../lib/billing-store.mjs';
 import { FLOW, configure, expectedMode, idOf, reply, stripe } from '../../lib/stripe.mjs';
 
 export async function onRequest({ request, env }) {
@@ -7,6 +9,12 @@ export async function onRequest({ request, env }) {
   if (!/^cs_(test_|live_)?[A-Za-z0-9]{12,200}$/.test(id || '')) return reply({ error: 'Unavailable payment' }, 404);
   try {
     const session = await stripe(`checkout/sessions/${id}`);
+    if (session.metadata?.flow === HOSTING_FLOW) {
+      if (!expectedMode(session.livemode, env.STRIPE_MODE)) throw new Error('Unavailable');
+      const p = await new BillingStore(env.CLOSE_BILLING_DB, env.STRIPE_MODE).get(session.metadata.close_project_id);
+      if (!p || p.setupSessionId !== id || p.customerId !== idOf(session.customer)) throw new Error('Unavailable');
+      return reply({ kind: HOSTING_FLOW, setupComplete: !!p.setupAccepted, paid: false, invoiceUrl: null });
+    }
     if (session.metadata?.flow !== FLOW || !expectedMode(session.livemode)) throw new Error('Unavailable');
     const paid = session.status === 'complete' && session.payment_status === 'paid';
     let invoiceUrl = null;

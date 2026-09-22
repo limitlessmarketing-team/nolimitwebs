@@ -1,0 +1,20 @@
+name: Security checks
+on:
+  pull_request:
+  push:
+    branches: [main, stripe-sandbox]
+permissions:
+  contents: read
+jobs:
+  billing-tests:
+    name: Billing and security tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903
+        with:
+          node-version: 24
+      - run: node --test tests/*.test.mjs
