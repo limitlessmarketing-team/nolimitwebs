@@ -193,3 +193,31 @@ Before enabling real billing:
 - [Stripe Payment Links](https://docs.stripe.com/api/payment-link/create)
 - [Stripe invoice collection](https://docs.stripe.com/api/invoices/pay)
 - [Stripe subscriptions](https://docs.stripe.com/api/subscriptions/create)
+
+## Missing Close records
+
+If a proposal activity or its parent lead is deleted after billing starts, a
+Close API 404 during a status read/update stores `closeSync.status = record_missing`
+on the billing project. Subsequent Stripe notifications retain the latest billing
+status in that project without calling the missing Close activity. The integration
+does not cancel, recreate, or modify the Stripe subscription as part of this check.
+Other errors (including authorization failures, rate limits and outages) still retry.
+
+This is an internal review flag and a one-time server warning, not an email or CRM
+notification. Admins can find affected projects in the matching environment's D1:
+
+```sql
+SELECT id, lead_id, json_extract(state, '$.subscriptionId') AS subscription_id,
+       json_extract(state, '$.closeSync.detectedAt') AS detected_at,
+       json_extract(state, '$.closeSync.lastBillingStatus') AS billing_status
+FROM close_billing_projects
+WHERE json_extract(state, '$.closeSync.status') = 'record_missing';
+```
+
+A 404 means the record could not be found; it is not proof of why it disappeared.
+Do not create another subscription to reconnect it. First review the existing
+Stripe customer/subscription. If restoring Close, verify the original activity ID,
+lead, organization, activity type and agreed prices. Only then may an administrator
+clear the `closeSync` flag in the project state so the next payment notification
+can update the restored activity. A new lead has a different identity and requires
+an explicit reconciliation. A flagged project cannot trigger a new launch charge.
