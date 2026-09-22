@@ -14,7 +14,8 @@ try {
   for (const [element, value] of Object.entries({ total: proposal.buildTotal, balance: proposal.balance, hosting: proposal.monthlyHosting, deposit: proposal.deposit })) $(element).textContent = money(value);
   $('test-mode').hidden = !proposal.testMode;
   const full = proposal.paymentPlan === 'full_upfront';
-  const hostingOnly = proposal.kind === 'hosting_only_v1';
+  const hostingOnly = ['hosting_only_v1', 'hosting_domain_v1'].includes(proposal.kind);
+  const domain = proposal.domainAmount > 0;
   if (hostingOnly) {
     $('intro-lead').textContent = 'Your website build is included. One clear monthly hosting price, starting when your website launches.';
     const steps = [
@@ -53,7 +54,20 @@ try {
     $('timeline').lastElementChild.hidden = true;
     $('intro-lead').textContent = full ? 'One upfront website payment. No build balance at launch and no recurring hosting.' : 'A clear website build price: half upfront, half at launch. No recurring hosting.';
   }
-  if (hostingOnly && proposal.active) {
+  if (domain) {
+    $('domain-row').hidden = false; $('domain-name').textContent = proposal.domainName;
+    $('domain-price').textContent = money(proposal.domainAmount);
+    $('domain-description').textContent = `${money(proposal.domainAmount)} due today for the first year. Renews automatically at ${money(proposal.domainAmount)}/year, starting one year after this payment, until canceled. Billed separately from monthly hosting.`;
+    $('deposit').textContent = money(proposal.totalDue); $('due-label').textContent = 'Total due today';
+    if (hostingOnly) {
+      $('timeline').querySelector('h2').textContent = 'Register your domain';
+      $('timeline').querySelector('p').textContent = 'Pay for the first year of your domain and save your card securely. Monthly hosting starts at launch.';
+      $('checkout').textContent = 'Continue to secure checkout ↗';
+      document.querySelector('.secure').textContent = 'Your payment is processed securely by Stripe.';
+      $('closed').textContent = 'This proposal is no longer open for payment. Contact us if you need help.';
+    }
+  }
+  if (proposal.kind === 'hosting_only_v1' && proposal.active) {
     $('checkout').href = '#';
     $('checkout').addEventListener('click', async event => {
       event.preventDefault();
@@ -76,7 +90,7 @@ try {
   } else if (proposal.active && /^https:\/\/buy\.stripe\.com\//.test(proposal.checkoutUrl)) $('checkout').href = proposal.checkoutUrl;
   else { $('checkout').hidden = true; $('closed').hidden = false; }
   const paragraphs = hostingOnly ? [
-    `My website build is included. Nothing is due today. I authorize Limitless Marketing Group LLC to securely save my card through Stripe.`,
+    `My website build is included. ${domain ? 'The domain registration charge shown above is due today.' : 'Nothing is due today.'} I authorize Limitless Marketing Group LLC to securely save my card through Stripe.`,
     `I authorize $${(proposal.monthlyHosting / 100).toFixed(2)} USD in monthly hosting, with the first payment charged when my website launches, then monthly until canceled. The team will notify me when my website launches.`,
     'Additional services or hosting price changes require my separate approval. My bank may require additional verification.',
     'I can request cancellation of future hosting renewals by emailing contact@nolimitwebs.com before the next renewal. The service end date will be confirmed in writing.',
@@ -94,6 +108,7 @@ try {
     'I can request cancellation of future hosting renewals by emailing contact@nolimitwebs.com before the next renewal. Cancellation does not cancel an outstanding website build balance. The service end date will be confirmed in writing.',
     'I will be asked to accept these billing terms in Stripe before paying.',
   ];
+  if (domain) paragraphs.push(`I authorize ${money(proposal.domainAmount)} USD today for the first year of ${proposal.domainName}, then automatic annual charges of the same amount starting one year after this payment until canceled. Domain renewals are billed separately from hosting. I can cancel future domain billing at contact@nolimitwebs.com before renewal. Price changes require separate approval. Canceling hosting does not cancel domain renewal billing.`);
   for (const text of paragraphs.filter(text => proposal.monthlyHosting > 0 || !text.startsWith('I can request cancellation'))) { const p = document.createElement('p'); p.textContent = text; $('authorization').append(p); }
   $('details').hidden = false; $('intro').hidden = false;
 } catch (error) {
