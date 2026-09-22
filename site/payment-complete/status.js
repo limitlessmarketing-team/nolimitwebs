@@ -14,11 +14,13 @@ try {
       paid = true; $('mark').textContent = '✓'; $('title').textContent = 'Your card is saved.';
       $('status').textContent = 'Nothing was charged today. Your website build is included.';
       $('next').textContent = 'We’ll notify you when your website launches. Your first monthly hosting payment will be charged at launch, then monthly until canceled.';
+      if (data.paymentPlan === 'full_upfront') $('next').textContent = data.monthlyHosting > 0 ? 'No build balance is due at launch. We’ll confirm your launch date; monthly hosting starts 30 days later.' : 'No build balance is due at launch and no monthly hosting is scheduled.';
       $('next').hidden = false; break;
     }
     if (data.paid) {
-      paid = true; $('mark').textContent = '✓'; $('title').textContent = 'Your deposit is paid.';
+      paid = true; $('mark').textContent = '✓'; $('title').textContent = data.paymentPlan === 'full_upfront' ? 'Your website is paid in full.' : 'Your deposit is paid.';
       $('status').textContent = 'Thank you. Your payment has been confirmed by Stripe.';
+      if (data.paymentPlan === 'full_upfront') $('next').textContent = data.monthlyHosting > 0 ? 'No build balance is due at launch. We’ll confirm your launch date; monthly hosting starts 30 days later.' : 'No build balance is due at launch and no monthly hosting is scheduled.';
       $('next').hidden = false;
       if (data.invoiceUrl) { $('invoice').href = data.invoiceUrl; $('invoice').hidden = false; }
       break;

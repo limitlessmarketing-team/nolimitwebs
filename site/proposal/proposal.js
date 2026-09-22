@@ -13,6 +13,7 @@ try {
   $('proposal-title').textContent = proposal.title;
   for (const [element, value] of Object.entries({ total: proposal.buildTotal, balance: proposal.balance, hosting: proposal.monthlyHosting, deposit: proposal.deposit })) $(element).textContent = money(value);
   $('test-mode').hidden = !proposal.testMode;
+  const full = proposal.paymentPlan === 'full_upfront';
   const hostingOnly = proposal.kind === 'hosting_only_v1';
   if (hostingOnly) {
     $('intro-lead').textContent = 'Your website build is included. One clear monthly hosting price, starting when your website launches.';
@@ -35,6 +36,22 @@ try {
     document.querySelector('.secure').textContent = 'Your card is saved securely by Stripe. No charge today.';
     $('closed').textContent = 'This proposal is no longer open for card setup. If you already saved your card, nothing is due until launch. Contact us if you need help.';
     document.querySelector('.terms a').href = '/hosting-terms/';
+  }
+  if (full) {
+    $('intro-lead').textContent = 'One upfront website payment. No build balance at launch. Hosting starts 30 days after your website goes live.';
+    $('balance-row').hidden = true;
+    $('due-label').textContent = 'Full website payment due today';
+    const headings = $('timeline').querySelectorAll('h2'), copies = $('timeline').querySelectorAll('p');
+    headings[0].textContent = 'Pay for your website in full';
+    copies[0].textContent = 'Review your proposal and pay the full website price securely through Stripe.';
+    headings[1].textContent = 'Launch with no build balance';
+    copies[1].textContent = 'We finish and launch your website. No additional website build payment is due.';
+    document.querySelector('.terms a').href = '/full-payment-terms/';
+  }
+  if (!hostingOnly && proposal.monthlyHosting === 0) {
+    document.querySelector('.hosting').hidden = true;
+    $('timeline').lastElementChild.hidden = true;
+    if (full) $('intro-lead').textContent = 'One upfront website payment. No build balance at launch and no recurring hosting.';
   }
   if (hostingOnly && proposal.active) {
     $('checkout').href = '#';
@@ -64,6 +81,12 @@ try {
     'Additional services or hosting price changes require my separate approval. My bank may require additional verification.',
     'I can request cancellation of future hosting renewals by emailing contact@nolimitwebs.com before the next renewal. The service end date will be confirmed in writing.',
     'I will accept these hosting billing terms in Stripe before saving my card.'
+  ] : full ? [
+    `I authorize Limitless Marketing Group LLC to collect the full ${money(proposal.buildTotal)} USD website build price and securely save my card through Stripe.`,
+    proposal.monthlyHosting > 0 ? `No build balance is due at launch. I authorize ${money(proposal.monthlyHosting)} USD in monthly hosting starting 30 days after my website launches, then monthly until canceled. The team will confirm my launch date and first hosting billing date.` : 'No build balance is due at launch and no recurring hosting is included.',
+    'Additional services or hosting price changes require my separate approval. My bank may require further verification.',
+    'I can request cancellation of future hosting renewals at contact@nolimitwebs.com before the next renewal. The service end date will be confirmed in writing.',
+    'I will accept these full-payment billing terms in Stripe before paying.'
   ] : [
     `I authorize Limitless Marketing Group LLC to collect my ${money(proposal.deposit)} USD deposit and securely save the payment method I provide through Stripe.`,
     `I authorize the remaining ${money(proposal.balance)} USD build balance to be charged when my website goes live, and ${money(proposal.monthlyHosting)} USD in monthly hosting starting 30 days after launch. Hosting continues monthly until canceled. The team will notify me of the launch date and first hosting billing date.`,

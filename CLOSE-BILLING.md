@@ -26,6 +26,21 @@ Use **Create website proposal** and **Website launched** for real clients.
 The separate forms with **(sandbox)** in their names are for tests only. Each proposal activity is one project; multiple projects may
 belong to the same Lead. Output fields are optional and filled automatically.
 
+## Full-payment projects (100% upfront)
+
+In **Create website proposal**, select **Website payment plan → 100% upfront**,
+then enter the full build price and monthly hosting price. The client pays the
+whole build price and authorizes their card for hosting. Close reports **Website
+paid in full** and supplies the **Launch reference**. When the website is live,
+use **Website launched** with that reference and the existing authorization.
+There is no build invoice or charge at launch. Hosting starts exactly 30 days
+later and renews monthly. A hosting price of 0 creates no recurring subscription.
+
+Leaving **Website payment plan** blank or selecting **50% deposit** preserves
+the original split-payment flow. Once a proposal is created, its payment plan
+and prices cannot be changed; replace the proposal instead. Existing proposals
+without a plan retain the 50% behavior.
+
 ## Hosting-only projects ($0 website build)
 
 Use the same **Create website proposal** action, entering 0 for the build and a
@@ -54,7 +69,7 @@ Prepared in Limitless Marketing Group’s Close organization:
 
 | Action | Type ID | Fields |
 |---|---|---|
-| Create website proposal (sandbox) | `actitype_3qOOp9oevMJIBkip7wtxB2` | Required: Project name, Website build price (USD), Monthly hosting price (USD). Outputs: Billing status, Proposal link, Launch reference, Final invoice ID, Hosting subscription ID. |
+| Create website proposal (sandbox) | `actitype_3qOOp9oevMJIBkip7wtxB2` | Required: Project name, Website build price (USD), Monthly hosting price (USD). Optional: Website payment plan. Outputs: Billing status, Proposal link, Launch reference, Final invoice ID, Hosting subscription ID. |
 | Website launched (sandbox) | `actitype_2D8JRXmj5iTkVM68605M2n` | Required: Launch reference, Launch authorization. Output: Billing result. |
 
 Use separate activity type IDs for sandbox and production. Do not point both
@@ -96,7 +111,7 @@ Non-secret settings:
   "launchType": "actitype_REPLACE",
   "enabledAfter": "REPLACE_WITH_ACTIVATION_TIMESTAMP",
   "proposalFields": {
-    "project": "cf_REPLACE", "build": "cf_REPLACE", "hosting": "cf_REPLACE",
+    "paymentPlan": "cf_REPLACE", "project": "cf_REPLACE", "build": "cf_REPLACE", "hosting": "cf_REPLACE",
     "status": "cf_REPLACE", "link": "cf_REPLACE", "deposit": "cf_REPLACE",
     "final": "cf_REPLACE", "subscription": "cf_REPLACE"
   },

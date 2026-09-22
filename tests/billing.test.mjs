@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
-import { completeDeposit, readProposal, verifyEvent, FLOW, TERMS } from '../lib/stripe.mjs';
+import { completeDeposit, readProposal, verifyEvent, FLOW, TERMS, FULL_TERMS } from '../lib/stripe.mjs';
 
 const linkId = 'plink_1234567890123456';
 const sessionId = 'cs_test_1234567890123456';
@@ -92,4 +92,32 @@ test('webhook signature requires original bytes, valid secret and recent timesta
   assert.throws(() => verifyEvent(raw, header, 'wrong', now));
   assert.throws(() => verifyEvent(raw, header, 'secret', now + 301000));
   assert.throws(() => verifyEvent(raw, 'v1=x', 'secret', now));
+});
+
+function fullFixtures() {
+  const d = fixtures();
+  const md = { ...metadata, payment_plan:'full_upfront', authorization_version:FULL_TERMS, close_project_id:'acti_project' };
+  d[`payment_links/${linkId}`].metadata=md; d[`checkout/sessions/${sessionId}`].metadata={...md};
+  d[`payment_links/${linkId}/line_items?limit=2`].data[0].price.unit_amount=200000;
+  Object.assign(d[`checkout/sessions/${sessionId}`],{amount_total:200000,amount_subtotal:200000});
+  Object.assign(d['invoices/in_deposit'],{subtotal_excluding_tax:200000,amount_paid:200000});
+  return d;
+}
+test('full-payment proposal displays 100% due and zero remaining build balance', async()=>{
+  const {public:p}=await readProposal(linkId,mock(fullFixtures()).api);
+  assert.equal(p.paymentPlan,'full_upfront'); assert.equal(p.deposit,200000); assert.equal(p.balance,0); assert.equal(p.buildTotal,200000);
+});
+test('full payment records its own terms and stays outside the native deposit launch workflow',async()=>{
+  const m=mock(fullFixtures()); await completeDeposit(sessionId,m.api);
+  assert.equal(m.writes[1].params['metadata[launch_status]'],'close_ready');
+  assert.equal(m.writes[1].params['metadata[authorization_version]'],FULL_TERMS);
+  assert.equal(m.writes[1].params['metadata[payment_plan]'],'full_upfront');
+});
+for(const [name,mutate] of [
+  ['half payment',d=>{d[`checkout/sessions/${sessionId}`].amount_total=100000;}],
+  ['wrong plan',d=>{d[`checkout/sessions/${sessionId}`].metadata.payment_plan='deposit_50';}],
+  ['deposit terms',d=>{d[`payment_links/${linkId}`].metadata.authorization_version=TERMS;}],
+  ['missing Close ownership',d=>{delete d[`payment_links/${linkId}`].metadata.close_project_id;}]
+]) test(`full checkout rejects ${name}`,async()=>{
+  const d=fullFixtures();mutate(d);const m=mock(d);await assert.rejects(completeDeposit(sessionId,m.api));assert.equal(m.writes.length,0);
 });
