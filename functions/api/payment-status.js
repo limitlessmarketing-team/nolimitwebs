@@ -24,6 +24,6 @@ export async function onRequest({ request, env }) {
       if (invoice.status === 'paid' && idOf(invoice.customer) === idOf(session.customer) &&
           /^https:\/\/invoice\.stripe\.com\//.test(invoice.hosted_invoice_url || '')) invoiceUrl = invoice.hosted_invoice_url;
     }
-    return reply({ paid, amount: paid ? session.amount_total : null, invoiceUrl });
+    return reply({ paid, paymentPlan: session.metadata.payment_plan || 'deposit_50', monthlyHosting: Number(session.metadata.hosting_monthly_cents), amount: paid ? session.amount_total : null, invoiceUrl });
   } catch { return reply({ error: 'We could not verify this payment yet. Please check your Stripe receipt.' }, 404); }
 }

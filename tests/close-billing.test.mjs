@@ -14,7 +14,7 @@ const clock = Date.parse('2026-09-11T18:00:00Z');
 const proposalId = 'acti_project1', launchId = 'acti_launch1', leadId = 'lead_client1';
 const config = { mode: 'test', organizationId: 'orga_company', subscriptionId: 'whsub_billing',
   proposalType: 'actitype_proposal', launchType: 'actitype_launch', enabledAfter: '2026-09-11T00:00:00Z',
-  proposalFields: Object.fromEntries(['project', 'build', 'hosting', 'status', 'link', 'deposit', 'final', 'subscription'].map(n => [n, `cf_${n}`])),
+  proposalFields: Object.fromEntries(['paymentPlan', 'project', 'build', 'hosting', 'status', 'link', 'deposit', 'final', 'subscription'].map(n => [n, `cf_${n}`])),
   launchFields: { invoice: 'cf_invoice', authorization: 'cf_authorization', result: 'cf_result' } };
 const env = { STRIPE_MODE: 'test', STRIPE_SECRET_KEY: 'rk_test_fake', CLOSE_BILLING_ENABLED: 'true', CLOSE_BILLING_CONFIG: JSON.stringify(config) };
 
@@ -103,18 +103,26 @@ function fixture(options = {}) {
     return structuredClone(result);
   };
   const store = new BillingStore(database(), 'test', () => clock);
-  const service = createBillingService(env, { stripe: api, close, store, now: () => clock });
+  const selectedConfig = options.paths ? { ...config, paths: options.paths } : config;
+  if (options.route) {
+    activities[proposalId].custom_activity_type_id = options.route.proposalType;
+    activities[launchId].custom_activity_type_id = options.route.launchType;
+    if (options.route.billingPath === 'hosting_only') delete activities[proposalId]['custom.cf_build'];
+    if (options.route.billingPath === 'website_only') delete activities[proposalId]['custom.cf_hosting'];
+  }
+  const service = createBillingService({ ...env, CLOSE_BILLING_CONFIG: JSON.stringify(selectedConfig) }, { stripe: api, close, store, now: () => clock });
   const payload = id => ({ subscription_id: config.subscriptionId, event: { id: `ev_${id}`, object_id: id,
     organization_id: config.organizationId, lead_id: activities[id].lead_id, object_type: 'activity.custom_activity', action: 'created' } });
   const deposit = async () => {
     const p = await store.get(proposalId), link = data[`payment_links/${p.linkId}`];
+    const paidAmount = p.paymentPlan === 'full_upfront' ? p.build : p.build / 2;
     const md = { close_project_id: p.id, close_lead_id: p.leadId, close_organization_id: config.organizationId };
     data['checkout/sessions/cs_test_paid'] = { id: 'cs_test_paid', livemode: false, metadata: structuredClone(link.metadata), status: 'complete', payment_status: 'paid',
       mode: 'payment', consent: { terms_of_service: 'accepted' }, payment_link: p.linkId, customer: 'cus_client', invoice: 'in_deposit',
-      payment_intent: 'pi_deposit', currency: 'usd', amount_total: p.build / 2, amount_subtotal: p.build / 2 };
-    data['invoices/in_deposit'] = { id: 'in_deposit', livemode: false, customer: 'cus_client', status: 'paid', currency: 'usd', amount_paid: p.build / 2,
-      subtotal_excluding_tax: p.build / 2, metadata: { ...md, launch_status: 'awaiting_checkout' } };
-    data['payment_intents/pi_deposit'] = { id: 'pi_deposit', status: 'succeeded', setup_future_usage: 'off_session', customer: 'cus_client', payment_method: 'pm_card', amount_received: p.build / 2 };
+      payment_intent: 'pi_deposit', currency: 'usd', amount_total: paidAmount, amount_subtotal: paidAmount };
+    data['invoices/in_deposit'] = { id: 'in_deposit', livemode: false, customer: 'cus_client', status: 'paid', currency: 'usd', amount_paid: paidAmount,
+      subtotal_excluding_tax: paidAmount, metadata: { ...md, launch_status: 'awaiting_checkout' } };
+    data['payment_intents/pi_deposit'] = { id: 'pi_deposit', status: 'succeeded', setup_future_usage: 'off_session', customer: 'cus_client', payment_method: 'pm_card', amount_received: paidAmount };
     data['payment_intents/pi_deposit?expand[]=latest_charge'] = { ...data['payment_intents/pi_deposit'], latest_charge: { amount_refunded: 0, disputed: false, refunded: false } };
     data['payment_methods/pm_card'] = { id: 'pm_card', customer: 'cus_client', type: 'card' };
     data['customers/cus_client'] = { id: 'cus_client', livemode: false, balance: 0, invoice_settings: { default_payment_method: 'pm_card' } };
@@ -269,7 +277,8 @@ for (const [build, hosting] of [[500, 20], [1, 0]]) {
     assert.equal(f.writes.find(w => w.path === 'invoiceitems').params.amount, String(build * 50));
     const p = await f.store.get(proposalId);
     assert.equal(f.data[`prices/${p.hostingPriceId}`].unit_amount, hosting * 100);
-    assert.equal(f.data['subscriptions/sub_hosting'].trial_end, clock / 1000 + 30 * 86400);
+    if (hosting > 0) assert.equal(f.data['subscriptions/sub_hosting'].trial_end, clock / 1000 + 30 * 86400);
+    else assert.equal(f.writes.filter(w => w.path === 'subscriptions').length, 0);
     const count = f.writes.length;
     await f.service.onClose(f.payload(proposalId));
     await f.service.onClose(f.payload(launchId));
@@ -376,4 +385,101 @@ test('hosting setup endpoint rejects cross-origin requests and invalid methods b
   assert.equal((await hostingEndpoint({ request: new Request('https://example.com'), env })).status, 405);
   assert.equal((await hostingEndpoint({ request: new Request('https://example.com', { method: 'POST', headers: {
     origin: 'https://evil.example', 'content-type': 'application/json' }, body: '{}' }), env })).status, 403);
+});
+
+for (const hosting of [149, 0]) {
+  test(`full upfront build with $${hosting} hosting never charges a build balance at launch`, async () => {
+    const f = fixture(); f.activities[proposalId]['custom.cf_paymentPlan'] = '100% upfront';
+    f.activities[proposalId]['custom.cf_hosting'] = hosting;
+    await f.service.onClose(f.payload(proposalId));
+    const link = f.writes.find(w => w.path === 'payment_links').params;
+    assert.equal(link['metadata[payment_plan]'], 'full_upfront');
+    assert.match(link['custom_text[terms_of_service_acceptance][message]'], /No build balance/);
+    assert.equal(f.writes.filter(w => w.path === 'prices')[1].params.unit_amount, '350000');
+    await f.deposit();
+    assert.match(f.activities[proposalId]['custom.cf_status'], /Website paid in full/);
+    assert.equal(f.data['invoices/in_deposit'].amount_paid, 350000);
+    await f.service.onClose(f.payload(launchId));
+    assert.equal(f.writes.filter(w => ['invoices','invoiceitems'].includes(w.path) || w.path.endsWith('/pay')).length, 0);
+    const p = await f.store.get(proposalId); assert.equal(p.stage, 'launched'); assert.equal(p.finalId, undefined);
+    if (hosting) assert.equal(f.data['subscriptions/sub_hosting'].trial_end, clock / 1000 + 30 * 86400);
+    else assert.equal(p.subscriptionId, undefined);
+    const count = f.writes.length;
+    await f.service.onClose(f.payload(launchId)); await f.deposit(); await f.service.onClose(f.payload(proposalId));
+    assert.equal(f.writes.length, count);
+  });
+}
+test('full payment plan cannot be changed after creating a proposal', async () => {
+  const f = fixture(); await f.service.onClose(f.payload(proposalId));
+  const count = f.writes.length; f.activities[proposalId]['custom.cf_paymentPlan'] = '100% upfront';
+  await f.service.onClose(f.payload(proposalId));
+  assert.match(f.activities[proposalId]['custom.cf_status'], /locked/); assert.equal(f.writes.length, count);
+});
+test('full-payment launch refuses a refunded build payment', async () => {
+  const f = fixture(); f.activities[proposalId]['custom.cf_paymentPlan'] = '100% upfront';
+  await f.service.onClose(f.payload(proposalId)); await f.deposit();
+  f.data['payment_intents/pi_deposit?expand[]=latest_charge'].latest_charge.amount_refunded = 100;
+  await f.service.onClose(f.payload(launchId));
+  assert.match(f.activities[launchId]['custom.cf_result'], /review/i);
+  assert.equal(f.writes.filter(w => w.path === 'subscriptions').length, 0);
+});
+test('unknown and contradictory payment plans fail before Stripe writes', async () => {
+  for (const [plan, build] of [['other',3500], ['100% upfront',0]]) {
+    const f = fixture(); f.activities[proposalId]['custom.cf_paymentPlan'] = plan; f.activities[proposalId]['custom.cf_build'] = build;
+    await f.service.onClose(f.payload(proposalId)); assert.equal(f.writes.length,0);
+    assert.match(f.activities[proposalId]['custom.cf_status'],/Review required/);
+  }
+});
+test('full-payment launch resumes after lost subscription response without another charge', async () => {
+  const f = fixture({loseResponseFor:'subscriptions'}); f.activities[proposalId]['custom.cf_paymentPlan'] = '100% upfront';
+  await f.service.onClose(f.payload(proposalId)); await f.deposit();
+  await assert.rejects(f.service.onClose(f.payload(launchId)));
+  await f.service.onClose(f.payload(launchId));
+  assert.equal(f.writes.filter(w=>w.path==='subscriptions').length,1);
+  assert.equal(f.writes.filter(w=>w.path==='invoices'||w.path.endsWith('/pay')).length,0);
+});
+
+const fixedPaths = ['deposit_hosting', 'full_hosting', 'hosting_only', 'website_only'].map((billingPath, i) => ({
+  billingPath, proposalType: `actitype_proposal${i}`, launchType: `actitype_launch${i}`,
+  proposalFields: Object.fromEntries(Object.entries(config.proposalFields).filter(([name]) =>
+    name !== 'paymentPlan' && !(billingPath === 'hosting_only' && ['build', 'final'].includes(name)) &&
+    !(billingPath === 'website_only' && ['hosting', 'subscription'].includes(name)) && !(billingPath === 'full_hosting' && name === 'final'))),
+  launchFields: config.launchFields,
+}));
+for (const route of fixedPaths) {
+  test(`separate action: ${route.billingPath} freezes plan and rejects a different launch action`, async () => {
+    const f = fixture({ paths: fixedPaths, route });
+    await f.service.onClose(f.payload(proposalId));
+    let p = await f.store.get(proposalId);
+    assert.equal(p.proposalType, route.proposalType);
+    assert.equal(p.paymentPlan, route.billingPath === 'full_hosting' ? 'full_upfront' : 'deposit_50');
+    assert.equal(p.build, route.billingPath === 'hosting_only' ? 0 : 350000);
+    assert.equal(p.hosting, route.billingPath === 'website_only' ? 0 : 14900);
+    if (route.billingPath === 'hosting_only') {
+      await f.service.hostingProposal(p.linkId);
+      await f.service.hostingCheckout(p.linkId);
+      await f.setup();
+      f.activities[launchId]['custom.cf_invoice'] = proposalId;
+    } else await f.deposit();
+    const before = f.writes.length;
+    f.activities[launchId].custom_activity_type_id = fixedPaths.find(r => r !== route).launchType;
+    await f.service.onClose(f.payload(launchId));
+    assert.match(f.activities[launchId]['custom.cf_result'], /does not match the original proposal/);
+    assert.equal(f.writes.length, before);
+    f.activities[launchId].custom_activity_type_id = route.launchType;
+    await f.service.onClose(f.payload(launchId));
+    p = await f.store.get(proposalId);
+    assert.equal(p.stage, 'launched');
+    assert.equal(Boolean(p.finalId), ['deposit_hosting', 'website_only'].includes(route.billingPath));
+    assert.equal(Boolean(p.subscriptionId), route.billingPath !== 'website_only');
+    const sub = f.writes.find(w => w.path === 'subscriptions');
+    if (sub) assert.equal(sub.params.trial_end, route.billingPath === 'hosting_only' ? undefined : String(clock / 1000 + 30 * 86400));
+    assert.ok(!f.closeWrites.some(w => 'custom.undefined' in w.params));
+  });
+}
+test('legacy proposal and launch remain available with all new routes configured', async () => {
+  const f = fixture({ paths: fixedPaths });
+  await f.service.onClose(f.payload(proposalId)); await f.deposit();
+  await f.service.onClose(f.payload(launchId));
+  assert.equal((await f.store.get(proposalId)).stage, 'launched');
 });
