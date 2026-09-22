@@ -5,7 +5,7 @@ Cloudflare Pages billing backend. It is disabled unless `CLOSE_BILLING_ENABLED`
 is explicitly `true`. No new customer-facing app or CRM messaging automation is
 introduced.
 
-## Daily use after activation
+## Paid-build projects
 
 1. Open the client’s Lead in Close and add **Create website proposal**.
 2. Enter a short project name, the **full website build price in dollars**, and
@@ -16,7 +16,7 @@ introduced.
    Stripe Checkout, accepts the billing authorization, and pays the 50% deposit.
    Their card is saved for subsequent payments. Close changes to **Deposit paid**.
 5. When the website is live, add **Website launched** on the same Lead. Copy
-   the deposit invoice ID from the proposal activity. Select **Website is live
+   the **Launch reference** (the paid deposit invoice ID) from the proposal activity. Select **Website is live
    and signed billing authorization is on file**, then publish.
 6. Stripe attempts the remaining 50% once and creates the monthly hosting
    subscription with its first payment 30 days after that launch action.
@@ -35,7 +35,7 @@ through Stripe Checkout setup mode. No deposit, build invoice or subscription
 is created during card setup.
 
 After Stripe verifies consent and card setup, Close shows **Card saved** and a
-launch reference beginning `acti_` in the proposal's launch-reference field.
+reference beginning `acti_` in the proposal's **Launch reference** field.
 For **Website launched**, paste that reference (instead of an `in_` deposit ID),
 confirm the same launch authorization, and publish. Stripe attempts the first
 monthly hosting charge immediately and renews monthly with no trial. A failed
@@ -54,8 +54,8 @@ Prepared in Limitless Marketing Group’s Close organization:
 
 | Action | Type ID | Fields |
 |---|---|---|
-| Create website proposal (sandbox) | `actitype_3qOOp9oevMJIBkip7wtxB2` | Required: Project name, Website build price (USD), Monthly hosting price (USD). Outputs: Billing status, Proposal link, Deposit invoice ID, Final invoice ID, Hosting subscription ID. |
-| Website launched (sandbox) | `actitype_2D8JRXmj5iTkVM68605M2n` | Required: Deposit invoice ID, Launch authorization. Output: Billing result. |
+| Create website proposal (sandbox) | `actitype_3qOOp9oevMJIBkip7wtxB2` | Required: Project name, Website build price (USD), Monthly hosting price (USD). Outputs: Billing status, Proposal link, Launch reference, Final invoice ID, Hosting subscription ID. |
+| Website launched (sandbox) | `actitype_2D8JRXmj5iTkVM68605M2n` | Required: Launch reference, Launch authorization. Output: Billing result. |
 
 Use separate activity type IDs for sandbox and production. Do not point both
 webhook subscriptions at the same pair of action types.
