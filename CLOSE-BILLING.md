@@ -102,8 +102,9 @@ Keep the existing Stripe checkout events and add:
 ## Billing safeguards and recovery
 
 - Dollar amounts are parsed without floating-point rounding. Build prices must
-  be whole dollars, at least $1,000; hosting at least $50. Both remain adjustable
-  for each new proposal. The deposit is exactly half of the build.
+  be positive whole dollars; hosting can be any nonnegative amount, including $0.
+  There are no business pricing floors. Stripe payment processing limits still apply.
+  Both remain adjustable for each new proposal. The deposit is exactly half of the build.
 - A published proposal’s title/prices are immutable in the billing ledger.
   To replace a proposal, deactivate its old Payment Link in Stripe before
   creating another activity. Editing the old activity never reprices a link.

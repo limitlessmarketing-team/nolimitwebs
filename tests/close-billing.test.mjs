@@ -94,10 +94,10 @@ function fixture(options = {}) {
     const md = { close_project_id: p.id, close_lead_id: p.leadId, close_organization_id: config.organizationId };
     data['checkout/sessions/cs_test_paid'] = { id: 'cs_test_paid', livemode: false, metadata: structuredClone(link.metadata), status: 'complete', payment_status: 'paid',
       mode: 'payment', consent: { terms_of_service: 'accepted' }, payment_link: p.linkId, customer: 'cus_client', invoice: 'in_deposit',
-      payment_intent: 'pi_deposit', currency: 'usd', amount_total: 175000, amount_subtotal: 175000 };
-    data['invoices/in_deposit'] = { id: 'in_deposit', livemode: false, customer: 'cus_client', status: 'paid', currency: 'usd', amount_paid: 175000,
-      subtotal_excluding_tax: 175000, metadata: { ...md, launch_status: 'awaiting_checkout' } };
-    data['payment_intents/pi_deposit'] = { id: 'pi_deposit', status: 'succeeded', setup_future_usage: 'off_session', customer: 'cus_client', payment_method: 'pm_card', amount_received: 175000 };
+      payment_intent: 'pi_deposit', currency: 'usd', amount_total: p.build / 2, amount_subtotal: p.build / 2 };
+    data['invoices/in_deposit'] = { id: 'in_deposit', livemode: false, customer: 'cus_client', status: 'paid', currency: 'usd', amount_paid: p.build / 2,
+      subtotal_excluding_tax: p.build / 2, metadata: { ...md, launch_status: 'awaiting_checkout' } };
+    data['payment_intents/pi_deposit'] = { id: 'pi_deposit', status: 'succeeded', setup_future_usage: 'off_session', customer: 'cus_client', payment_method: 'pm_card', amount_received: p.build / 2 };
     data['payment_intents/pi_deposit?expand[]=latest_charge'] = { ...data['payment_intents/pi_deposit'], latest_charge: { amount_refunded: 0, disputed: false, refunded: false } };
     data['payment_methods/pm_card'] = { id: 'pm_card', customer: 'cus_client', type: 'card' };
     data['customers/cus_client'] = { id: 'cus_client', livemode: false, balance: 0, invoice_settings: { default_payment_method: 'pm_card' } };
@@ -228,4 +228,34 @@ test('an uncertain Stripe write older than 23 hours requires reconciliation, nev
   time += 24 * 3600000;
   await assert.rejects(store.withLock(proposalId, async (p, tx) => tx.post('final-invoice', 'invoices', {}, api)), ReviewRequired);
   assert.equal(count, 1);
+});
+
+for (const [build, hosting] of [[500, 20], [1, 0]]) {
+  test(`no business minimum: $${build} build and $${hosting} hosting complete the billing lifecycle`, async () => {
+    const f = fixture();
+    f.activities[proposalId]['custom.cf_build'] = build;
+    f.activities[proposalId]['custom.cf_hosting'] = hosting;
+    await f.service.onClose(f.payload(proposalId));
+    assert.match(f.activities[proposalId]['custom.cf_link'], /plink_/);
+    await f.deposit();
+    await f.service.onClose(f.payload(launchId));
+    assert.equal(f.data['invoices/in_deposit'].amount_paid, build * 50);
+    assert.equal(f.writes.find(w => w.path === 'invoiceitems').params.amount, String(build * 50));
+    const p = await f.store.get(proposalId);
+    assert.equal(f.data[`prices/${p.hostingPriceId}`].unit_amount, hosting * 100);
+    assert.equal(f.data['subscriptions/sub_hosting'].trial_end, clock / 1000 + 30 * 86400);
+    const count = f.writes.length;
+    await f.service.onClose(f.payload(proposalId));
+    await f.service.onClose(f.payload(launchId));
+    assert.equal(f.writes.length, count);
+  });
+}
+test('invalid pricing is explained before any Stripe writes', async () => {
+  for (const [field, value] of [['build', 0], ['build', -1], ['hosting', -1], ['hosting', 'bad']]) {
+    const f = fixture(); f.activities[proposalId][`custom.cf_${field}`] = value;
+    await f.service.onClose(f.payload(proposalId));
+    assert.equal(f.writes.length, 0);
+    assert.match(f.activities[proposalId]['custom.cf_status'], /Review required/);
+    assert.doesNotMatch(f.activities[proposalId]['custom.cf_status'], /1,000|at least \$50/);
+  }
 });
