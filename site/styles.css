@@ -93,7 +93,7 @@ main { padding-top: calc(var(--nav-h) + env(safe-area-inset-top, 0px)); }
 .navLinks { display: flex; align-items: center; gap: 34px; font-size: 14.5px; font-weight: 500; }
 .navLinks > a:not(.navCta) { color: var(--muted); transition: color .2s; }
 .navLinks > a:not(.navCta):hover { color: var(--text); }
-.navCta { border-radius: 999px; padding: 11px 20px; background: var(--accent); color: var(--void); font-weight: 600; box-shadow: 0 8px 24px rgba(0, 0, 0, .45); transition: transform .2s var(--ease); }
+.navCta { border-radius: 999px; padding: 10px 14px; font-size: 14px; line-height: 18px; background: var(--accent); color: var(--void); font-weight: 600; box-shadow: 0 8px 24px rgba(0, 0, 0, .45); transition: transform .2s var(--ease); }
 .navCta:hover { transform: translateY(-1px); }
 .navToggle { display: none; }
 .navMenu { display: none; }
