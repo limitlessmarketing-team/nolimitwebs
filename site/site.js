@@ -8,8 +8,28 @@
   var bar = document.querySelector('.mobileBar');
   var hero = document.getElementById('top');
 
-  function onScroll(){ if (nav) nav.setAttribute('data-scrolled', String(window.scrollY > 12)); }
-  onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+  // Direction threshold ignores small touch jitter; clamp Safari overscroll.
+  var scrollAnchor = Math.max(0, window.scrollY), scrollFrame = 0;
+  function onScroll() {
+    scrollFrame = 0;
+    if (!nav) return;
+    var y = Math.max(0, Math.min(window.scrollY, document.documentElement.scrollHeight - window.innerHeight));
+    nav.setAttribute('data-scrolled', String(y > 12));
+    nav.setAttribute('data-hero-visible', String(!!hero && y < hero.offsetHeight / 2));
+    var focused = nav.contains(document.activeElement) && document.activeElement.matches(':focus-visible');
+    if (y <= nav.offsetHeight || nav.getAttribute('data-open') === 'true' || focused) {
+      nav.setAttribute('data-hidden', 'false');
+      scrollAnchor = y;
+    } else if (Math.abs(y - scrollAnchor) >= 10) {
+      nav.setAttribute('data-hidden', String(y > scrollAnchor));
+      scrollAnchor = y;
+    }
+  }
+  function queueScroll() { if (!scrollFrame) scrollFrame = requestAnimationFrame(onScroll); }
+  onScroll();
+  window.addEventListener('scroll', queueScroll, { passive: true });
+  window.addEventListener('resize', queueScroll, { passive: true });
+  if (nav) nav.addEventListener('focusin', function () { nav.setAttribute('data-hidden', 'false'); });
 
   var navToggle = document.querySelector('.navToggle');
   var navMenu = document.querySelector('.navMenu');
@@ -17,6 +37,7 @@
     navToggle.addEventListener('click', function () {
       var open = nav.getAttribute('data-open') === 'true';
       nav.setAttribute('data-open', String(!open));
+      nav.setAttribute('data-hidden', 'false');
       navToggle.setAttribute('aria-expanded', String(!open));
       navToggle.setAttribute('aria-label', open ? 'Open menu' : 'Close menu');
     });
@@ -26,6 +47,24 @@
         navToggle.setAttribute('aria-expanded', 'false');
         navToggle.setAttribute('aria-label', 'Open menu');
       });
+    });
+  }
+
+  if (navToggle && navMenu && nav) {
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && nav.getAttribute('data-open') === 'true') {
+        nav.setAttribute('data-open', 'false');
+        navToggle.setAttribute('aria-expanded', 'false');
+        navToggle.setAttribute('aria-label', 'Open menu');
+        navToggle.focus();
+      }
+    });
+    window.addEventListener('resize', function () {
+      if (window.innerWidth > 720) {
+        nav.setAttribute('data-open', 'false');
+        navToggle.setAttribute('aria-expanded', 'false');
+        navToggle.setAttribute('aria-label', 'Open menu');
+      }
     });
   }
 
@@ -71,11 +110,21 @@
 
   // Reveal on scroll
   var rv = document.querySelectorAll('.rv');
-  if ('IntersectionObserver' in window) {
+  var reducedReveal = window.matchMedia('(prefers-reduced-motion: reduce)');
+  if ('IntersectionObserver' in window && !reducedReveal.matches) {
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (en) { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } });
     }, { rootMargin: '0px 0px -8% 0px' });
-    rv.forEach(function (el) { if (el.getBoundingClientRect().top > window.innerHeight) el.classList.add('revealPending'); io.observe(el); });
+    rv.forEach(function (el) {
+      if (el.getBoundingClientRect().top >= window.innerHeight - 1) {
+        el.classList.add('revealPending');
+        if (el.matches('.whyCard, .step, .libCard')) {
+          var index = Array.prototype.indexOf.call(el.parentElement.children, el);
+          el.style.setProperty('--reveal-delay', (index % 3) * 85 + 'ms');
+        }
+      }
+      io.observe(el);
+    });
   } else { rv.forEach(function (el) { el.classList.add('in'); }); }
 
   // In-page scrolling with a proper header offset, identical in every browser.
