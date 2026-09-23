@@ -338,15 +338,24 @@ main { padding-top: calc(var(--nav-h) + env(safe-area-inset-top, 0px)); }
 /* The complete first viewport contains the introduction, calls to action, and navigation.
    min-height lets large text / landscape devices grow without clipping copy. */
 .homeHero {
-  min-height: calc(100vh - var(--nav-h) - env(safe-area-inset-top, 0px));
-  min-height: calc(100dvh - var(--nav-h) - env(safe-area-inset-top, 0px));
+  min-height: 100vh;
+  min-height: 100dvh;
   display: flex; align-items: center;
-  padding: clamp(64px, 9vh, 120px) 0;
+  --hero-space: clamp(64px, 9vh, 120px);
+  padding: calc(var(--nav-h) + env(safe-area-inset-top, 0px) + var(--hero-space)) 0 var(--hero-space);
+  text-align: center;
   background: radial-gradient(ellipse at 108% 115%, #ffffff38, transparent 59%),
     linear-gradient(117deg, #111111 10%, #171717 48%, #323232 76%, #191919);
 }
 .homeHero .heroAura { display: none; }
-.homeHero .lede { max-width: 54ch; }
+.homeHero h1 { max-width: 1100px; margin-inline: auto; }
+.homeHero .lede { max-width: 54ch; margin-inline: auto; }
+.homeHero .heroActions { justify-content: center; }
+.homeHero .heroKicker::after { content: ""; width: 44px; height: 1px; background: var(--accent-soft); }
+.homePage main { padding-top: 0; }
+.homePage .nav { background: transparent; border: 0; box-shadow: none; }
+.homePage .navLinks > a:not(.navCta) { color: var(--text); text-shadow: 0 1px 10px #0008; }
+.homePage .navMenu { margin: 0 16px; border: 1px solid var(--hairline); border-radius: 20px; background: rgba(17,17,17,.96); }
 .heroFollow { padding: clamp(48px, 6vw, 80px) 0; background: var(--void); }
 .heroFollow .heroTrust { margin-top: 0; }
 .nav[data-hidden="true"] { transform: translateY(-110%); }
@@ -354,7 +363,11 @@ main { padding-top: calc(var(--nav-h) + env(safe-area-inset-top, 0px)); }
 .rv:focus-within { opacity: 1; transform: none; }
 @media (max-width: 720px) {
   :root { --nav-h: 66px; }
-  .homeHero { padding: clamp(28px, 6vh, 64px) 0; }
+  .homeHero { --hero-space: clamp(28px, 6vh, 64px); }
+  .homeHero .heroActions { max-width: 420px; margin-inline: auto; }
+  .homeHero .heroActions .button { justify-content: center; }
+  .homeHero .heroKicker { gap: 10px; letter-spacing: .14em; }
+  .homeHero .heroKicker::before,.homeHero .heroKicker::after { width: 24px; }
   .homeHero h1 { font-size: clamp(42px, 10.5vw, 68px); }
   .homeHero .lede { font-size: 18px; }
 }
@@ -368,7 +381,7 @@ main { padding-top: calc(var(--nav-h) + env(safe-area-inset-top, 0px)); }
   .homeHero .heroActions { margin-top: 24px; }
 }
 @media (min-width: 721px) and (max-height: 500px) {
-  .homeHero { padding: 16px 0; }
+  .homeHero { --hero-space: 16px; }
   .homeHero .heroKicker { margin-bottom: 16px; }
   .homeHero .lede { margin-top: 18px; }
   .homeHero .heroActions { margin-top: 20px; }
