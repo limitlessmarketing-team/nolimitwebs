@@ -5,15 +5,15 @@
    the original aura shows instead. */
 .hero[data-shader="on"] .heroAura { display: none; }
 .heroShader { position: absolute; inset: 0; z-index: -3; width: 100%; height: 100%; display: block; }
-.heroScrim { position: absolute; inset: 0; z-index: -2; pointer-events: none; opacity: .85;
-  background: linear-gradient(90deg, rgba(5,7,12,.92) 0%, rgba(5,7,12,.80) 50%, rgba(5,7,12,.42) 82%, rgba(5,7,12,.18) 100%); }
+.heroScrim { position: absolute; inset: 0; z-index: -2; pointer-events: none; opacity: 1;
+  background: linear-gradient(90deg, rgba(17,17,17,.84) 0%, rgba(17,17,17,.78) 65%, rgba(17,17,17,.64) 100%); }
 .heroFade { position: absolute; inset: 0; z-index: -1; pointer-events: none;
-  background: linear-gradient(180deg, rgba(5,7,12,.55) 0%, rgba(5,7,12,0) 22%, rgba(5,7,12,0) 62%, var(--void) 100%); }
+  background: linear-gradient(180deg, rgba(17,17,17,.55) 0%, rgba(17,17,17,0) 22%, rgba(17,17,17,0) 62%, var(--void) 100%); }
 .hero:not([data-shader="on"]) .heroShader, .hero:not([data-shader="on"]) .heroScrim, .hero:not([data-shader="on"]) .heroFade { display: none; }
-.hero[data-shader="on"] .lede { color: #c9cfdd; }
-@supports (-webkit-text-stroke: 1px currentColor) { .hero[data-shader="on"] h1 em { color: rgba(5,7,12,.38); -webkit-text-stroke: 1.5px #ffd6e7; } }
-.hero[data-shader="on"] .heroTrust { color: #c3c9d8; }
-.hero[data-shader="on"] .buttonGhost { background: rgba(5,7,12,.42); border-color: rgba(255,255,255,.22); }
+.hero[data-shader="on"] .lede { color: var(--muted); }
+@supports (-webkit-text-stroke: 1px currentColor) { .hero[data-shader="on"] h1 em { color: rgba(17,17,17,.38); -webkit-text-stroke: 1.5px var(--accent); } }
+.hero[data-shader="on"] .heroTrust { color: var(--muted); }
+.hero[data-shader="on"] .buttonGhost { background: rgba(17,17,17,.42); border-color: rgba(255,255,255,.22); }
 @media (max-width: 720px) {
-  .heroScrim { background: linear-gradient(180deg, rgba(5,7,12,.80), rgba(5,7,12,.70)); }
+  .heroScrim { background: linear-gradient(180deg, rgba(17,17,17,.78), rgba(17,17,17,.78)); }
 }

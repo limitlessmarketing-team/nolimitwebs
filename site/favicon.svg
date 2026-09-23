@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
 <title>Limitless torus</title>
-<defs><linearGradient id="purple" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#c9b0ff"/><stop offset="0.5" stop-color="#b18cff"/><stop offset="1" stop-color="#3d46e8"/></linearGradient></defs>
-<circle cx="32" cy="32" r="31" fill="#080a12"/>
-<g fill="none" stroke="url(#purple)" stroke-width="1.05">
+<defs><linearGradient id="lime" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffffff"/><stop offset="0.5" stop-color="#d8fa70"/><stop offset="1" stop-color="#d8fa70"/></linearGradient></defs>
+<circle cx="32" cy="32" r="31" fill="#111111"/>
+<g fill="none" stroke="url(#lime)" stroke-width="1.05">
 <circle cx="44.900" cy="32.000" r="15.2"/>
 <circle cx="43.918" cy="36.937" r="15.2"/>
 <circle cx="41.122" cy="41.122" r="15.2"/>
@@ -20,5 +20,5 @@
 <circle cx="41.122" cy="22.878" r="15.2"/>
 <circle cx="43.918" cy="27.063" r="15.2"/>
 </g>
-<circle cx="32" cy="32" r="2.2" fill="#f4f5fb"/>
+<circle cx="32" cy="32" r="2.2" fill="#ffffff"/>
 </svg>

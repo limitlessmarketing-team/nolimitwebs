@@ -253,15 +253,15 @@
 
   // Values the 21st.dev builder exported ("Silk").
   var U = {
-    colors: [ // original 21st.dev "Silk" palette
-      0.0431, 0.0627, 0.1490,
-      0.2392, 0.2745, 0.9098,
-      0.6941, 0.5490, 1.0,
-      1.0, 0.8392, 0.9059,
-      1.0, 0.8392, 0.9059,
-      1.0, 0.8392, 0.9059,
-      1.0, 0.8392, 0.9059,
-      1.0, 0.8392, 0.9059
+    colors: [ // Limitless: near-black, charcoal, white, restrained lime highlights.
+      0.0667, 0.0667, 0.0667,
+      0.23, 0.23, 0.23,
+      1.0, 1.0, 1.0,
+      0.8471, 0.9804, 0.4392,
+      0.8471, 0.9804, 0.4392,
+      0.8471, 0.9804, 0.4392,
+      0.8471, 0.9804, 0.4392,
+      0.8471, 0.9804, 0.4392
     ],
     colorCount: 4, scale: 1.5, intensity: 0.55, paramA: 0.5, warp: 0,
     detail: 2.4, contrast: 1.005, brightness: -0.03, saturation: 1,
