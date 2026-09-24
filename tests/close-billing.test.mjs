@@ -109,7 +109,7 @@ function fixture(options = {}) {
     return structuredClone(result);
   };
   const store = new BillingStore(database(), 'test', () => clock);
-  const selectedConfig = options.paths ? { ...config, paths: options.paths } : config;
+  const selectedConfig = { ...config, ...(options.paths ? { paths: options.paths } : {}), ...(options.cancel ? {cancelType:'actitype_cancel',cancelFields:{proposal:'cf_cancelLink',authorization:'cf_cancelAuth',result:'cf_cancelResult'}} : {}) };
   if (options.route) {
     activities[proposalId].custom_activity_type_id = options.route.proposalType;
     activities[launchId].custom_activity_type_id = options.route.launchType;
@@ -651,4 +651,35 @@ test('unpaid domain checkout cannot schedule annual renewal or enable launch', a
   await f.service.onStripe({type:'checkout.session.completed',data:{object:{id:'cs_test_unpaid'}}});
   assert.equal((await f.store.get(proposalId)).depositId,undefined);
   assert.equal(f.writes.filter(w=>w.path==='subscriptions').length,0);
+});
+
+
+test('canceled proposal cannot reopen on a replay or start hosting checkout or launch', async () => {
+ const f=fixture();
+ f.activities[proposalId]['custom.cf_build']=0;
+ await f.service.onClose(f.payload(proposalId));
+ await f.store.withLock(proposalId,async(p,tx)=>{p.cancellation={status:'canceled'};await tx.save(p);});
+ const p=await f.store.get(proposalId), count=f.writes.length;
+ await f.service.onClose(f.payload(proposalId));
+ assert.equal(f.writes.length,count);
+ await assert.rejects(f.service.hostingCheckout(p.linkId),/canceled/);
+ await assert.rejects(f.service.hostingProposal(p.linkId),/canceled/);
+ f.activities[launchId]['custom.cf_invoice']=proposalId;
+ await f.service.onClose(f.payload(launchId));
+ assert.equal(f.writes.length,count);
+ assert.match(f.activities[launchId]['custom.cf_result'],/canceled/);
+});
+
+test('signed Close router dispatches cancellation to its proposal path and publishes both results', async () => {
+ const route={billingPath:'hosting_only',proposalType:'actitype_newproposal',launchType:'actitype_newlaunch',proposalFields:config.proposalFields,launchFields:config.launchFields};
+ const f=fixture({paths:[route],route,cancel:true});
+ await f.service.onClose(f.payload(proposalId));
+ const p=await f.store.get(proposalId);
+ f.activities.acti_cancel={id:'acti_cancel',lead_id:leadId,organization_id:config.organizationId,status:'published',date_created:'2026-09-11T18:00:00Z',custom_activity_type_id:'actitype_cancel',
+ 'custom.cf_cancelLink':'https://stripe-sandbox.nolimitwebs.pages.dev/proposal/#'+p.linkId,
+ 'custom.cf_cancelAuth':'Cancel this unpaid proposal and disable its checkout'};
+ await f.service.onClose(f.payload('acti_cancel'));
+ assert.equal((await f.store.get(proposalId)).cancellation.status,'canceled');
+ assert.match(f.activities.acti_cancel['custom.cf_cancelResult'],/Proposal canceled/);
+ assert.match(f.activities[proposalId]['custom.cf_status'],/Proposal canceled/);
 });

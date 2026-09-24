@@ -255,3 +255,12 @@ Rollout: deploy code to sandbox, run tools/configure-domain-fields.py test with 
 approved temporary Close key, apply the resulting test route configuration,
 verify all four paths with sandbox payments and renewals, then repeat the field
 configuration for live and deploy. Revoke the temporary key afterward.
+
+## Withdraw an incorrect unpaid proposal
+
+On the same lead, choose **3. Cancel proposal — unpaid only** (or its **(sandbox)** equivalent).
+Paste the old **Proposal link** into **Proposal link to cancel**. In **Confirm cancellation**, enter:
+`Cancel this unpaid proposal and disable its checkout`
+Leave **Cancellation result** blank and publish the activity. Wait for **Proposal canceled — old link and open checkouts disabled** before creating and sharing a replacement proposal.
+
+The action works across all four billing paths, including optional domain charges. It disables that proposal's payment link and expires open Stripe checkouts. It never refunds payments, deletes customers, or cancels hosting/domain subscriptions. Already accepted proposals are refused; a checkout completed during cancellation is flagged for Stripe review. Do not delete the original proposal as a substitute for this action. Cancellation is permanent for that proposal; create a new one to offer corrected terms.
