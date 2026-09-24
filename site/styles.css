@@ -386,3 +386,7 @@ main { padding-top: calc(var(--nav-h) + env(safe-area-inset-top, 0px)); }
   .homeHero .lede { margin-top: 18px; }
   .homeHero .heroActions { margin-top: 20px; }
 }
+
+/* Approved centered, full-width Marketing Group subtitle. */
+.brandWordmark{display:block;width:180px;height:auto}.logoVisual{gap:0}
+@media(max-width:480px){.brandWordmark{width:160px}}
