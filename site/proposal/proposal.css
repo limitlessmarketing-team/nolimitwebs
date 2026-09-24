@@ -5,3 +5,21 @@
 @media(prefers-reduced-motion:no-preference){.proposal{animation:arrive .4s ease-out}@keyframes arrive{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}}
 /* Confirmation cards share .proposal but retain their own page margins. */
 @media(max-width:680px){.proposal.confirmation{width:calc(100% - 44px)}.confirmation .help{font-size:12px;overflow-wrap:anywhere}.confirmation h1{overflow-wrap:anywhere}}
+
+/* Light billing theme; the marketing homepage retains its dark theme. */
+:root{color:#111111;background:#ffffff;--accent:#d8fa70;--muted:#5b5b5b}
+body{background:radial-gradient(ellipse at 10% 30%,#f6f8f0,transparent 55%)}
+.help span,summary{color:#111111}
+.eyebrow{color:#424b30}
+h1 em{color:#111111;text-decoration:underline;text-decoration-color:#d8fa70;text-decoration-thickness:7px;text-underline-offset:6px}
+.step{color:#111111;background:#eef8ce;border-color:#dce9bb}
+.proposal{background:#ffffff;border-color:#deded8;box-shadow:0 16px 60px #11111108}
+.price-row,.terms,footer{border-color:#e4e4df}
+.hosting{background:#f7f8f4;border-color:#e4e7db}
+.test-banner,.notice{background:#f0f2ec;color:#515747}
+.primary{background:#d8fa70;color:#111111}
+.document p{color:#5b5b5b}
+
+.logo{background-image:url("/billing-logo.svg?v=light-1");background-size:contain;background-position:left center;flex-shrink:0}
+.confirmation .mark{background:#eef8ce;color:#26320c}
+@media(max-width:680px){.logo{width:190px;height:50px}.masthead{gap:12px}}
