@@ -388,5 +388,5 @@ main { padding-top: calc(var(--nav-h) + env(safe-area-inset-top, 0px)); }
 }
 
 /* Approved centered, full-width Marketing Group subtitle. */
-.brandWordmark{display:block;width:180px;height:auto;flex:none}.logoVisual{gap:0}
-@media(max-width:480px){.brandWordmark{width:160px}}
+.brandWordmark{display:block;width:129px;height:auto;flex:none}.logoVisual{gap:0}
+@media(max-width:480px){.brandWordmark{width:111px}}
