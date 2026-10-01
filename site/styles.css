@@ -450,3 +450,14 @@ main { padding-top: calc(var(--nav-h) + env(safe-area-inset-top, 0px)); }
 .why24 .whyNum { font-family: var(--sans); font-size: 44px; font-weight: 800; line-height: 1; letter-spacing: -.04em; color: transparent; -webkit-text-stroke: 1.5px var(--accent); margin-bottom: 16px; }
 @media (max-width: 720px) { .why24__big { top: 40px; -webkit-text-stroke-width: 1.5px; } .why24 .sectionHead { padding-top: 90px; } }
 @media (prefers-reduced-motion: reduce) { .why24__big { animation: none; } .why24__swoosh path { stroke-dashoffset: 0 !important; transition: none !important; } }
+
+/* Hero pill: five lime stars + "Your website, built free." on dark glass with a
+   lime glowing edge and a neon glow on "built free." */
+.hero .heroPill { gap: 12px; padding: 10px 20px; font-size: 15px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text); background: rgba(17, 17, 17, .75); border: 1px solid rgba(216, 250, 112, .6); box-shadow: 0 0 0 3px rgba(216, 250, 112, .08), 0 0 34px rgba(216, 250, 112, .28), inset 0 0 14px rgba(216, 250, 112, .10); }
+.hero .heroPill::before, .hero .heroPill::after { content: none; }
+.heroPill__stars { display: inline-flex; gap: 2px; }
+.heroPill__stars svg { width: 15px; height: 15px; fill: var(--accent); }
+.heroPill__div { width: 1px; height: 16px; background: rgba(255, 255, 255, .22); }
+.heroPill__w { color: var(--text); }
+.heroPill__l { color: var(--accent); text-shadow: 0 0 10px rgba(216, 250, 112, .85), 0 0 22px rgba(216, 250, 112, .45); }
+@media (max-width: 720px) { .homeHero .heroPill { font-size: 14px; letter-spacing: 0; gap: 10px; padding: 9px 16px; } .heroPill__stars svg { width: 13px; height: 13px; } }
