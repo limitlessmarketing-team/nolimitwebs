@@ -206,7 +206,7 @@
   }
   function done(){
     var d = document.createElement('div'); d.className = 'formPanel formDone'; d.setAttribute('role','status');
-    d.innerHTML = '<b>Request received.</b><p>We&rsquo;ll be in touch within one business day to set up your free mockup. If it&rsquo;s urgent, call <a href="tel:' + TEL + '">(385) 527-2738</a>.</p>';
+    d.innerHTML = '<b>Request received.</b><p>We&rsquo;ll be in touch within one business day to get your free website started. If it&rsquo;s urgent, call <a href="tel:' + TEL + '">(385) 527-2738</a>.</p>';
     form.replaceWith(d);
     d.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }
