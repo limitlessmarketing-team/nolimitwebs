@@ -228,7 +228,7 @@
       headers: { 'content-type': 'application/json', 'apikey': SB_KEY },
       body: JSON.stringify({ name: name, business: val('business'), phone: phone, email: email, message: val('message'), sms_consent: smsConsent, sms_consent_version: '2026-09-15-v1', token: verificationToken, company_website: val('company_website') })
     }).then(function (r) {
-      if (r.ok) { done(); return; }
+      if (r.ok) { done(); if (window.fbq) { try { fbq('track', 'Lead'); } catch (e) {} } return; }
       throw new Error('status ' + r.status);
     }).catch(function () {
       verificationToken = '';
